@@ -1,0 +1,21 @@
+{
+  "name": "cclilshy/p-ripple-drive",
+  "version": "0.0.1",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Cclilshy\\PRippleDrive\\": "src/"
+    }
+  },
+  "authors": [
+    {
+      "name": "cclilshy",
+      "email": "jingnigg@gmail.com"
+    }
+  ],
+  "require": {
+    "workerman/workerman": "^4.1",
+    "cclilshy/p-ripple-core": "^0.0.3",
+    "ext-pcntl": "*"
+  }
+}
