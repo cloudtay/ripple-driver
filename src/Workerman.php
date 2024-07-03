@@ -1,23 +1,23 @@
-<?php
+<?php declare(strict_types=1);
 
-namespace Cclilshy\PRippleDrive;
+namespace Psc\Drive;
 
-use Cclilshy\PRippleEvent\Core\Stream\Stream;
-use JetBrains\PhpStorm\NoReturn;
+use Closure;
+use Psc\Core\Stream\Stream;
 use Throwable;
 use Workerman\Events\EventInterface;
-use function A\cancel;
-use function A\delay;
-use function A\loop;
-use function A\onReadable;
-use function A\onSignal;
-use function A\onWritable;
-use function A\repeat;
+use Workerman\Worker;
+use function call_user_func_array;
 use function count;
+use function get_resource_id;
+use function P\cancel;
+use function P\delay;
+use function P\onSignal;
+use function P\repeat;
+use function P\run;
 
-class WorkerMan implements EventInterface
+class Workerman implements EventInterface
 {
-
     /**
      * @var array
      */
@@ -37,36 +37,69 @@ class WorkerMan implements EventInterface
         switch ($flag) {
             case EventInterface::EV_SIGNAL:
                 try {
-                    $id                     = onSignal($fd, $func);
-                    $this->_signal2ids[$fd] = $id;
+
+                    if ($func instanceof Closure) {
+                        $closure = fn() => $func($fd);
+                    }
+
+                    if (is_array($func)) {
+                        $closure = fn() => call_user_func($func, $fd);
+                    }
+
+                    if (is_string($func)) {
+                        if (str_contains($func, '::')) {
+                            $explode = explode('::', $func);
+                            $closure = fn() => call_user_func($explode, $fd);
+                        }
+
+                        if (function_exists($func)) {
+                            $closure = fn() => $func($fd);
+                        }
+                    }
+
+                    if (!isset($closure)) {
+                        return false;
+                    }
+                    $this->_signal2ids[$fd] = $id = onSignal($fd, $closure);
                     return $id;
                 } catch (Throwable $e) {
                     return false;
                 }
 
             case EventInterface::EV_TIMER:
-                $this->_timer[] = $timerId = repeat($fd, $func);
+                $this->_timer[] = $timerId = repeat($fd, function () use ($func, $args) {
+                    try {
+                        call_user_func_array($func, $args);
+                    } catch (Throwable $e) {
+                        Worker::stopAll(250, $e);
+                    }
+                });
                 return $timerId;
 
             case EventInterface::EV_TIMER_ONCE:
-                $this->_timer[] = $timerId = delay($fd, $func);
+                $this->_timer[] = $timerId = delay($fd, function () use ($func, $args) {
+                    try {
+                        call_user_func_array($func, $args);
+                    } catch (Throwable $e) {
+                        Worker::stopAll(250, $e);
+                    }
+                });
+
                 return $timerId;
 
             case EventInterface::EV_READ:
-                $id                         = onReadable(new Stream($fd), function (Stream $stream) use ($func) {
+                $stream                       = new Stream($fd);
+                $this->_fd2ids[$stream->id][] = $eventId = $stream->onReadable(function (Stream $stream) use ($func) {
                     $func($stream->stream);
                 });
-                $streamId                   = get_resource_id($fd);
-                $this->_fd2ids[$streamId][] = $id;
-                return $id;
+                return $eventId;
 
             case EventInterface::EV_WRITE:
-                $id                         = onWritable(new Stream($fd), function (Stream $stream) use ($func) {
+                $stream                       = new Stream($fd);
+                $this->_fd2ids[$stream->id][] = $eventId = $stream->onWritable(function (Stream $stream) use ($func) {
                     $func($stream->stream);
                 });
-                $streamId                   = get_resource_id($fd);
-                $this->_fd2ids[$streamId][] = $id;
-                return $id;
+                return $eventId;
         }
     }
 
@@ -117,7 +150,7 @@ class WorkerMan implements EventInterface
      */
     public function loop(): void
     {
-        loop();
+        run();
     }
 
     /**
@@ -131,8 +164,11 @@ class WorkerMan implements EventInterface
     /**
      * @return void
      */
-    #[NoReturn] public function destroy(): void
+    public function destroy(): void
     {
-        exit;
+        /**
+         * @deprecated 兼容__destruct
+         */
+        // \P\tick();
     }
 }

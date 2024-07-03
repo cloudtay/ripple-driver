@@ -1,10 +1,10 @@
 {
-  "name": "cclilshy/p-ripple-drive",
-  "version": "0.0.1",
+  "name": "cloudtay/p-ripple-drive",
+  "version": "1.0.3",
   "license": "MIT",
   "autoload": {
     "psr-4": {
-      "Cclilshy\\PRippleDrive\\": "src/"
+      "Psc\\Drive\\": "src/"
     }
   },
   "authors": [
@@ -14,8 +14,23 @@
     }
   ],
   "require": {
+    "ext-pcntl": "*",
+    "ext-posix": "*",
+    "cclilshy/p-ripple-core": "^0.2.6"
+  },
+  "require-dev": {
     "workerman/workerman": "^4.1",
-    "cclilshy/p-ripple-core": "^0.0.3",
-    "ext-pcntl": "*"
+    "illuminate/support": "^11.15",
+    "symfony/console": "^7.1",
+    "illuminate/http": "^11.15",
+    "illuminate/console": "^11.15",
+    "illuminate/container": "^11.15"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Psc\\Drive\\LaravelProvider"
+      ]
+    }
   }
 }

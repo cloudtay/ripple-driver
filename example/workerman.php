@@ -1,20 +1,25 @@
 <?php
-include_once __DIR__ . '/vendor/autoload.php';
+include_once __DIR__ . '/../vendor/autoload.php';
 
-use Cclilshy\PRippleDrive\WorkerMan;
-use Cclilshy\PRippleEvent\Core\Coroutine\Promise;
-use Cclilshy\PRippleEvent\Facades\Guzzle;
+use GuzzleHttp\Promise\Promise;
+use Psc\Core\Output;
+use Psc\Drive\Workerman;
 use Workerman\Timer;
 use Workerman\Worker;
-use function A\async;
-use function A\await;
-use function A\delay;
-use function A\fileGetContents;
+use function P\async;
+use function P\await;
+use function P\delay;
 
 $worker                = new Worker('tcp://127.0.0.1:28008');
 $worker->onWorkerStart = function () {
     $timerId = Timer::add(0.1, function () {
-        echo "hello world\n";
+        Output::info("memory usage: " . memory_get_usage());
+    });
+
+
+    $timerId2 = Timer::add(1, function () {
+        Output::info("memory usage: " . memory_get_usage());
+        gc_collect_cycles();
     });
 
     delay(3, fn() => Timer::del($timerId));
@@ -23,13 +28,13 @@ $worker->onWorkerStart = function () {
 $worker->onMessage = function ($connection, $data) {
     //方式1
     async(function () use ($connection) {
-        \A\sleep(3);
+        \P\sleep(3);
 
         $fileContent = await(
         /**
          * @return Promise<string>
          */
-            fileGetContents(__FILE__)
+            P\IO::File()->getContents(__FILE__)
         );
 
         $hash = hash('sha256', $fileContent);
@@ -37,7 +42,7 @@ $worker->onMessage = function ($connection, $data) {
     });
 
     //使用原生guzzle实现异步请求
-    Guzzle::getAsync('https://www.baidu.com/')
+    P\Net::Http()->Guzzle()->getAsync('https://www.baidu.com/')
         ->then(function ($response) use ($connection) {
             $connection->send("[async] Response status code: {$response->getStatusCode()}" . PHP_EOL);
         })
@@ -48,5 +53,5 @@ $worker->onMessage = function ($connection, $data) {
     $connection->send("say {$data}");
 };
 
-Worker::$eventLoopClass = WorkerMan::class;
+Worker::$eventLoopClass = Workerman::class;
 Worker::runAll();
