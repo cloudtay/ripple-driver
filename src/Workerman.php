@@ -4,6 +4,7 @@ namespace Psc\Drive;
 
 use Closure;
 use Psc\Core\Stream\Stream;
+use Revolt\EventLoop;
 use Throwable;
 use Workerman\Events\EventInterface;
 use Workerman\Worker;
@@ -37,7 +38,6 @@ class Workerman implements EventInterface
         switch ($flag) {
             case EventInterface::EV_SIGNAL:
                 try {
-
                     if ($func instanceof Closure) {
                         $closure = fn() => $func($fd);
                     }
@@ -62,28 +62,28 @@ class Workerman implements EventInterface
                     }
                     $this->_signal2ids[$fd] = $id = onSignal($fd, $closure);
                     return $id;
-                } catch (Throwable $e) {
+                } catch (Throwable) {
                     return false;
                 }
 
             case EventInterface::EV_TIMER:
-                $this->_timer[] = $timerId = repeat($fd, function () use ($func, $args) {
+                $this->_timer[] = $timerId = repeat(function () use ($func, $args) {
                     try {
                         call_user_func_array($func, $args);
                     } catch (Throwable $e) {
                         Worker::stopAll(250, $e);
                     }
-                });
+                }, $fd);
                 return $timerId;
 
             case EventInterface::EV_TIMER_ONCE:
-                $this->_timer[] = $timerId = delay($fd, function () use ($func, $args) {
+                $this->_timer[] = $timerId = delay(function () use ($func, $args) {
                     try {
                         call_user_func_array($func, $args);
                     } catch (Throwable $e) {
                         Worker::stopAll(250, $e);
                     }
-                });
+                }, $fd);
 
                 return $timerId;
 
@@ -170,5 +170,13 @@ class Workerman implements EventInterface
          * @deprecated 兼容__destruct
          */
         // \P\tick();
+    }
+
+    /**
+     *
+     */
+    public function __construct()
+    {
+        EventLoop::setDriver((new EventLoop\DriverFactory())->create());
     }
 }

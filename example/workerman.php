@@ -22,7 +22,7 @@ $worker->onWorkerStart = function () {
         gc_collect_cycles();
     });
 
-    delay(3, fn() => Timer::del($timerId));
+    delay(fn() => Timer::del($timerId), 3);
 };
 
 $worker->onMessage = function ($connection, $data) {

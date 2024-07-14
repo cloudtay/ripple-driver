@@ -7,7 +7,7 @@ use P\Net;
 use P\System;
 use Psc\Store\Net\Http\Server\Request;
 use Psc\Store\Net\Http\Server\Response;
-use Psc\Store\System\Exception\ProcessException;
+use Psc\Store\System\Process\Task;
 use think\App;
 use think\console\Command;
 use think\console\Input;
@@ -32,7 +32,6 @@ class PDrive extends Command
      * @param Input  $input
      * @param Output $output
      * @return void
-     * @throws ProcessException
      */
     protected function execute(Input $input, Output $output): void
     {
@@ -62,6 +61,10 @@ class PDrive extends Command
             $thinkRequest->withInput($request->getContent());
 
             $thinkResponse = $http->run($thinkRequest);
+
+            $response->setStatusCode($thinkResponse->getCode());
+            $response->headers->add($thinkResponse->getHeader());
+
             if ($thinkResponse instanceof File) {
                 $response->setContent(
                     IO::File()->open($thinkResponse->getData(), 'r')
@@ -76,9 +79,22 @@ class PDrive extends Command
         };
 
         $task = System::Process()->task(fn() => $server->listen());
+
         for ($i = 0; $i < $input->getOption('threads'); $i++) {
-            $task->run();
+            $this->guard($task);
         }
+
         run();
+    }
+
+    /**
+     * @param Task $task
+     * @return void
+     */
+    private function guard(Task $task): void
+    {
+        $task->run()->except(function () use ($task) {
+            $this->guard($task);
+        });
     }
 }

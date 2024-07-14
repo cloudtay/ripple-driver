@@ -10,7 +10,7 @@ use P\System;
 use Psc\Store\Net\Http\Server\Request;
 use Psc\Store\Net\Http\Server\Response;
 use Psc\Store\System\Exception\ProcessException;
-use Psc\Store\System\Task;
+use Psc\Store\System\Process\Task;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use function P\run;
@@ -51,7 +51,7 @@ class PDrive extends Command
             ],
         ]);
 
-        $server = Net::Http()->server($this->option('listen'), $context);
+        $server            = Net::Http()->server($this->option('listen'), $context);
         $server->onRequest = function (Request $request, Response $response) {
 
             $laravelRequest = new \Illuminate\Http\Request(
@@ -67,6 +67,10 @@ class PDrive extends Command
             $symfonyResponse = Container::getInstance()
                 ->make(Application::class)
                 ->handle($laravelRequest);
+
+            $response->setStatusCode($symfonyResponse->getStatusCode());
+            $response->setProtocolVersion($symfonyResponse->getProtocolVersion());
+            $response->headers->add($symfonyResponse->headers->all());
 
             if ($symfonyResponse instanceof BinaryFileResponse) {
                 $response->setContent(
