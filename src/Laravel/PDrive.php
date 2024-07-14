@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Psc\Drive\Laravel;
 
@@ -42,6 +42,8 @@ class PDrive extends Command
      */
     public function handle(): void
     {
+        error_reporting(E_WARNING);
+
         $context = stream_context_create([
             'socket' => [
                 'so_reuseport' => 1,

@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Psc\Drive\ThinkPHP;
 
@@ -36,6 +36,8 @@ class PDrive extends Command
      */
     protected function execute(Input $input, Output $output): void
     {
+        error_reporting(E_WARNING);
+
         $context = stream_context_create([
             'socket' => [
                 'so_reuseport' => 1,
