@@ -1,6 +1,6 @@
 {
   "name": "cloudtay/p-ripple-drive",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "license": "MIT",
   "autoload": {
     "psr-4": {
@@ -16,7 +16,7 @@
   "require": {
     "ext-pcntl": "*",
     "ext-posix": "*",
-    "cclilshy/p-ripple-core": "^0.2.6"
+    "cclilshy/p-ripple-core": "^0.2.8"
   },
   "require-dev": {
     "workerman/workerman": "^4.1",
@@ -24,12 +24,18 @@
     "symfony/console": "^7.1",
     "illuminate/http": "^11.15",
     "illuminate/console": "^11.15",
-    "illuminate/container": "^11.15"
+    "illuminate/container": "^11.15",
+    "topthink/framework": "^8.0"
   },
   "extra": {
     "laravel": {
       "providers": [
         "Psc\\Drive\\LaravelProvider"
+      ]
+    },
+    "think": {
+      "services": [
+        "Psc\\Drive\\ThinkPHPService"
       ]
     }
   }

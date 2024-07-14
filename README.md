@@ -52,6 +52,22 @@ Route::get('/download', function (Request $request) {
 
 > open `http://127.0.0.1:8008/`
 
+#### thinkphp 使用方法
+
+```bash
+#安装
+composer require cclilshy/p-ripple-drive
+
+#运行
+php think p:run
+
+# -l | --listen     服务监听地址,默认为 http://127.0.0.1:8008
+# -t | --threads    服务线程数,默认为4
+```
+
+> open `http://127.0.0.1:8008/`
+---
+
 ### 快速上手
 
 > 以下代码为使用示例,最新文档请移步[《使用文档》](https://github.com/cloudtay/p-ripple-core.git)
