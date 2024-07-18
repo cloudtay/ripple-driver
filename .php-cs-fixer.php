@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php
 /*
  * Copyright (c) 2023-2024.
  *
@@ -32,59 +32,36 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-include_once __DIR__ . '/../vendor/autoload.php';
+use PhpCsFixer\Config;
+use PhpCsFixer\Finder;
 
-use GuzzleHttp\Promise\Promise;
-use Psc\Core\Output;
-use Psc\Drive\Workerman;
-use Workerman\Timer;
-use Workerman\Worker;
+$finder = Finder::create()->in(__DIR__)
+    ->name('*.php')
+    ->notName('*.blade.php');
 
-use function P\async;
-use function P\await;
-use function P\delay;
+$config = new Config();
 
-$worker                = new Worker('tcp://127.0.0.1:28008');
-$worker->onWorkerStart = function () {
-    $timerId = Timer::add(0.1, function () {
-        Output::info("memory usage: " . \memory_get_usage());
-    });
+$config->setFinder($finder);
+$config->setRiskyAllowed(true);
 
-    $timerId2 = Timer::add(1, function () {
-        Output::info("memory usage: " . \memory_get_usage());
-        \gc_collect_cycles();
-    });
-
-    delay(fn () => Timer::del($timerId), 3);
-};
-
-$worker->onMessage = function ($connection, $data) {
-    //方式1
-    async(function () use ($connection) {
-        \P\sleep(3);
-
-        $fileContent = await(
-            /**
-             * @return Promise<string>
-             */
-            P\IO::File()->getContents(__FILE__)
-        );
-
-        $hash = \hash('sha256', $fileContent);
-        $connection->send("[await] File content hash: {$hash}" . \PHP_EOL);
-    });
-
-    //使用原生guzzle实现异步请求
-    P\Net::Http()->Guzzle()->getAsync('https://www.baidu.com/')
-        ->then(function ($response) use ($connection) {
-            $connection->send("[async] Response status code: {$response->getStatusCode()}" . \PHP_EOL);
-        })
-        ->except(function (Exception $e) use ($connection) {
-            $connection->send("[async] Exception: {$e->getMessage()}" . \PHP_EOL);
-        });
-
-    $connection->send("say {$data}");
-};
-
-Worker::$eventLoopClass = Workerman::class;
-Worker::runAll();
+return $config->setRules([
+    '@PSR12'                       => true,
+    'native_function_invocation'   => [
+        'include' => ['@all'],
+        'scope'   => 'all',
+        'strict'  => true,
+    ],
+    'native_constant_invocation'   => [
+        'include' => ['@all'],
+        'scope'   => 'all',
+        'strict'  => true,
+    ],
+    'global_namespace_import'      => [
+        'import_classes'   => true,
+        'import_constants' => true,
+        'import_functions' => true,
+    ],
+    'declare_strict_types'         => true,
+    'linebreak_after_opening_tag'  => false,
+    'blank_line_after_opening_tag' => false,
+]);

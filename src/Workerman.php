@@ -1,21 +1,63 @@
 <?php declare(strict_types=1);
+/*
+ * Copyright (c) 2023-2024.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ * 特此免费授予任何获得本软件及相关文档文件（“软件”）副本的人，不受限制地处理
+ * 本软件，包括但不限于使用、复制、修改、合并、出版、发行、再许可和/或销售
+ * 软件副本的权利，并允许向其提供本软件的人做出上述行为，但须符合以下条件：
+ *
+ * 上述版权声明和本许可声明应包含在本软件的所有副本或主要部分中。
+ *
+ * 本软件按“原样”提供，不提供任何形式的保证，无论是明示或暗示的，
+ * 包括但不限于适销性、特定目的的适用性和非侵权性的保证。在任何情况下，
+ * 无论是合同诉讼、侵权行为还是其他方面，作者或版权持有人均不对
+ * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
+ */
 
 namespace Psc\Drive;
 
 use Closure;
+use P\System;
 use Psc\Core\Stream\Stream;
 use Revolt\EventLoop;
+use Revolt\EventLoop\UnsupportedFeatureException;
 use Throwable;
 use Workerman\Events\EventInterface;
 use Workerman\Worker;
+
+use function call_user_func;
 use function call_user_func_array;
 use function count;
+use function explode;
+use function function_exists;
 use function get_resource_id;
+use function is_array;
+use function is_string;
 use function P\cancel;
 use function P\delay;
 use function P\onSignal;
 use function P\repeat;
 use function P\run;
+use function str_contains;
+use function posix_getpid;
 
 class Workerman implements EventInterface
 {
@@ -39,21 +81,21 @@ class Workerman implements EventInterface
             case EventInterface::EV_SIGNAL:
                 try {
                     if ($func instanceof Closure) {
-                        $closure = fn() => $func($fd);
+                        $closure = fn () => $func($fd);
                     }
 
                     if (is_array($func)) {
-                        $closure = fn() => call_user_func($func, $fd);
+                        $closure = fn () => call_user_func($func, $fd);
                     }
 
                     if (is_string($func)) {
                         if (str_contains($func, '::')) {
                             $explode = explode('::', $func);
-                            $closure = fn() => call_user_func($explode, $fd);
+                            $closure = fn () => call_user_func($explode, $fd);
                         }
 
                         if (function_exists($func)) {
-                            $closure = fn() => $func($fd);
+                            $closure = fn () => $func($fd);
                         }
                     }
 
@@ -173,10 +215,18 @@ class Workerman implements EventInterface
     }
 
     /**
-     *
+     * @throws UnsupportedFeatureException
      */
     public function __construct()
     {
-        EventLoop::setDriver((new EventLoop\DriverFactory())->create());
+        if (!isset(self::$baseProcessId)) {
+            self::$baseProcessId = posix_getpid();
+            EventLoop::setDriver((new EventLoop\DriverFactory())->create());
+        } elseif (self::$baseProcessId !== posix_getpid()) {
+            self::$baseProcessId = posix_getpid();
+            System::Process()->noticeFork();
+        }
     }
+
+    private static int $baseProcessId;
 }

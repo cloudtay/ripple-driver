@@ -1,20 +1,52 @@
 <?php declare(strict_types=1);
+/*
+ * Copyright (c) 2023-2024.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ * 特此免费授予任何获得本软件及相关文档文件（“软件”）副本的人，不受限制地处理
+ * 本软件，包括但不限于使用、复制、修改、合并、出版、发行、再许可和/或销售
+ * 软件副本的权利，并允许向其提供本软件的人做出上述行为，但须符合以下条件：
+ *
+ * 上述版权声明和本许可声明应包含在本软件的所有副本或主要部分中。
+ *
+ * 本软件按“原样”提供，不提供任何形式的保证，无论是明示或暗示的，
+ * 包括但不限于适销性、特定目的的适用性和非侵权性的保证。在任何情况下，
+ * 无论是合同诉讼、侵权行为还是其他方面，作者或版权持有人均不对
+ * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
+ */
 
 namespace Psc\Drive\ThinkPHP;
 
-use P\IO;
-use P\Net;
 use P\System;
-use Psc\Store\Net\Http\Server\Request;
-use Psc\Store\Net\Http\Server\Response;
-use Psc\Store\System\Process\Task;
-use think\App;
+use Psc\Library\Net\Http\Server\HttpServer;
 use think\console\Command;
 use think\console\Input;
 use think\console\input\Option;
 use think\console\Output;
-use think\response\File;
+
 use function P\run;
+use function base_path;
+use function file_get_contents;
+use function putenv;
+
+use const PHP_BINARY;
 
 class PDrive extends Command
 {
@@ -28,6 +60,8 @@ class PDrive extends Command
         $this->addOption('threads', 't', Option::VALUE_OPTIONAL, 'threads', 4);
     }
 
+    private HttpServer $httpServer;
+
     /**
      * @param Input  $input
      * @param Output $output
@@ -35,66 +69,32 @@ class PDrive extends Command
      */
     protected function execute(Input $input, Output $output): void
     {
-        error_reporting(E_WARNING);
+        $appPath = base_path();
+        $listen  = $input->getOption('listen');
+        $threads = $input->getOption('threads');
 
-        $context = stream_context_create([
-            'socket' => [
-                'so_reuseport' => 1,
-                'so_reuseaddr' => 1,
-            ],
-        ]);
+        putenv("P_RIPPLE_APP_PATH=$appPath");
+        putenv("P_RIPPLE_LISTEN=$listen");
+        putenv("P_RIPPLE_THREADS=$threads");
 
-        $app               = new App();
-        $http              = $app->http;
-        $server            = Net::Http()->server($input->getOption('listen'), $context);
-        $server->onRequest = function (Request $request, Response $response) use ($http) {
-            $thinkRequest = new \think\Request();
-            $thinkRequest->setUrl($request->getUri());
-            $thinkRequest->setBaseUrl($request->getBaseUrl());
-            $thinkRequest->setHost($request->getHost());
-            $thinkRequest->setPathinfo($request->getPathInfo());
-            $thinkRequest->setMethod($request->getMethod());
-            $thinkRequest->withHeader($request->headers->all());
-            $thinkRequest->withCookie($request->cookies->all());
-            $thinkRequest->withFiles($request->files->all());
-            $thinkRequest->withGet($request->query->all());
-            $thinkRequest->withInput($request->getContent());
+        $task = System::Process()->task(function () use ($listen) {
+            $session            = System::Proc()->open(PHP_BINARY);
+            $session->onMessage = function ($data) {
+                \Psc\Core\Output::info($data);
+            };
 
-            $thinkResponse = $http->run($thinkRequest);
+            $session->onErrorMessage = function ($data) {
+                Output::error($data);
+            };
 
-            $response->setStatusCode($thinkResponse->getCode());
-            $response->headers->add($thinkResponse->getHeader());
+            $session->input(
+                file_get_contents(__DIR__ . '/Guide.php')
+            );
 
-            if ($thinkResponse instanceof File) {
-                $response->setContent(
-                    IO::File()->open($thinkResponse->getData(), 'r')
-                );
-            } else {
-                $response->setContent(
-                    $thinkResponse->getData(),
-                    $thinkResponse->getHeader('Content-Type')
-                );
-            }
-            $response->respond();
-        };
-
-        $task = System::Process()->task(fn() => $server->listen());
-
-        for ($i = 0; $i < $input->getOption('threads'); $i++) {
-            $this->guard($task);
-        }
-
-        run();
-    }
-
-    /**
-     * @param Task $task
-     * @return void
-     */
-    private function guard(Task $task): void
-    {
-        $task->run()->except(function () use ($task) {
-            $this->guard($task);
+            $session->inputEot();
         });
+
+        $task->run();
+        run();
     }
 }

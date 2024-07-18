@@ -3,4 +3,6 @@
 /vendor/
 p-ripple-drive.iml
 
+.php-cs-fixer.cache
+
 composer.lock

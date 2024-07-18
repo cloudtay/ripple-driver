@@ -1,6 +1,6 @@
 {
   "name": "cloudtay/p-ripple-drive",
-  "version": "1.0.94",
+  "version": "1.0.97",
   "license": "MIT",
   "autoload": {
     "psr-4": {
@@ -16,7 +16,7 @@
   "require": {
     "ext-pcntl": "*",
     "ext-posix": "*",
-    "cclilshy/p-ripple-core": "^0.2.84"
+    "cclilshy/p-ripple-core": "dev-main"
   },
   "require-dev": {
     "workerman/workerman": "^4.1",
@@ -25,7 +25,8 @@
     "illuminate/http": "^11.15",
     "illuminate/console": "^11.15",
     "illuminate/container": "^11.15",
-    "topthink/framework": "^8.0"
+    "topthink/framework": "^8.0",
+    "friendsofphp/php-cs-fixer": "^3.59"
   },
   "extra": {
     "laravel": {
