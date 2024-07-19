@@ -41,12 +41,8 @@ use Psc\Library\Net\Http\Server\Request;
 use Psc\Library\Net\Http\Server\Response;
 use Psc\Library\System\Process\Runtime;
 use Psc\Library\System\Process\Task;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Symfony\Component\HttpFoundation\JsonResponse;
-
 use think\App;
 use think\response\File;
-
 use function P\run;
 
 $guide = $class = new class () {
@@ -57,7 +53,7 @@ $guide = $class = new class () {
 
     public function run(): void
     {
-        \error_reporting(\E_WARNING);
+        error_reporting(E_ALL & ~E_WARNING);
         $this->appPath = \getenv('P_RIPPLE_APP_PATH');
         $this->listen  = \getenv('P_RIPPLE_LISTEN');
         $this->threads = \getenv('P_RIPPLE_THREADS');
@@ -66,7 +62,8 @@ $guide = $class = new class () {
 
         $context      = \stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->server = Net::Http()->server($this->listen, $context);
-        $task         = System::Process()->task(function (HttpServer $server) {
+
+        $task = System::Process()->task(function (HttpServer $server) {
             $app  = new App();
             $http = $app->http;
 
@@ -123,6 +120,7 @@ $guide = $class = new class () {
             $this->guard($task);
         });
         $this->runtimes[] = $runtime;
+        $this->printState();
     }
 
     /**
@@ -140,17 +138,19 @@ $guide = $class = new class () {
      */
     private function monitor(): void
     {
-        $monitor           = IO::File()->watch($this->appPath, 'php');
-        $monitor->onTouch  = function (string $file) {
-            echo("File touched: {$file}");
+        $monitor          = IO::File()->watch($this->appPath, 'php');
+        $monitor->onTouch = function (string $file) {
+            $this->pushMessage("File touched: {$file}");
             $this->reload();
         };
+
         $monitor->onModify = function (string $file) {
-            echo("File modified: {$file}");
+            $this->pushMessage("File modified: {$file}");
             $this->reload();
         };
+
         $monitor->onRemove = function (string $file) {
-            echo("File removed: {$file}");
+            $this->pushMessage("File removed: {$file}");
             $this->reload();
         };
     }
@@ -159,6 +159,87 @@ $guide = $class = new class () {
      * @var Runtime[]
      */
     private array $runtimes = [];
+
+    /**
+     * @var array
+     */
+    private array $lastMessages = [];
+
+    /**
+     * @param string $message
+     * @return void
+     */
+    private function pushMessage(string $message): void
+    {
+        $this->lastMessages[] = $message;
+        if (\count($this->lastMessages) > 1) {
+            \array_shift($this->lastMessages);
+        }
+    }
+
+    /**
+     * @return void
+     */
+    private function printState(): void
+    {
+        echo "\033c";
+        $pid  = \posix_getpid();
+        $pids = [];
+        foreach ($this->runtimes as $runtime) {
+            $pids[] = $runtime->getProcessId();
+        }
+        echo "\033[1;34mPRipple\033[0m \033[1;32mLaunched\033[0m\n";
+        echo "\n";
+        echo $this->formatRow(['App Path', $this->appPath], 'info');
+        echo $this->formatRow(['Listen', $this->listen], 'info');
+        echo $this->formatRow(["Threads", $this->threads], 'info');
+        echo "\n";
+        echo $this->formatRow(["Master"], 'thread');
+        foreach ($pids as $pid) {
+            echo $this->formatRow(["├─ {$pid} Thread", 'Running'], 'thread');
+        }
+        echo "\n";
+        foreach ($this->lastMessages as $message) {
+            echo $this->formatList($message);
+        }
+    }
+
+    /**
+     * @param array  $row
+     * @param string $type
+     * @return string
+     */
+    private function formatRow(array $row, string $type = ''): string
+    {
+        $output    = '';
+        $colorCode = $this->getColorCode($type);
+        foreach ($row as $col) {
+            $output .= \str_pad("{$colorCode}{$col}\033[0m", 40);
+        }
+        return $output . "\n";
+    }
+
+    /**
+     * @param string $item
+     * @return string
+     */
+    private function formatList(string $item): string
+    {
+        return "  - $item\n";
+    }
+
+    /**
+     * @param string $type
+     * @return string
+     */
+    private function getColorCode(string $type): string
+    {
+        return match ($type) {
+            'info'   => "\033[1;36m",
+            'thread' => "\033[1;33m",
+            default  => "",
+        };
+    }
 };
 
 $guide->run();

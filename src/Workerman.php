@@ -36,13 +36,12 @@ namespace Psc\Drive;
 
 use Closure;
 use P\System;
+use Psc\Core\Output;
 use Psc\Core\Stream\Stream;
-use Revolt\EventLoop;
 use Revolt\EventLoop\UnsupportedFeatureException;
 use Throwable;
 use Workerman\Events\EventInterface;
 use Workerman\Worker;
-
 use function call_user_func;
 use function call_user_func_array;
 use function count;
@@ -56,8 +55,8 @@ use function P\delay;
 use function P\onSignal;
 use function P\repeat;
 use function P\run;
-use function str_contains;
 use function posix_getpid;
+use function str_contains;
 
 class Workerman implements EventInterface
 {
@@ -192,6 +191,16 @@ class Workerman implements EventInterface
      */
     public function loop(): void
     {
+        if (!isset(self::$baseProcessId)) {
+            self::$baseProcessId = posix_getpid();
+        } elseif (self::$baseProcessId !== posix_getpid()) {
+            self::$baseProcessId = posix_getpid();
+            try {
+                System::Process()->noticeFork();
+            } catch (UnsupportedFeatureException $e) {
+                Output::error($e->getMessage());
+            }
+        }
         run();
     }
 
@@ -215,18 +224,7 @@ class Workerman implements EventInterface
     }
 
     /**
-     * @throws UnsupportedFeatureException
+     * @var int
      */
-    public function __construct()
-    {
-        if (!isset(self::$baseProcessId)) {
-            self::$baseProcessId = posix_getpid();
-            EventLoop::setDriver((new EventLoop\DriverFactory())->create());
-        } elseif (self::$baseProcessId !== posix_getpid()) {
-            self::$baseProcessId = posix_getpid();
-            System::Process()->noticeFork();
-        }
-    }
-
     private static int $baseProcessId;
 }

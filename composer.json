@@ -1,6 +1,6 @@
 {
   "name": "cloudtay/p-ripple-drive",
-  "version": "1.0.97",
+  "version": "1.0.99",
   "license": "MIT",
   "autoload": {
     "psr-4": {
@@ -16,7 +16,7 @@
   "require": {
     "ext-pcntl": "*",
     "ext-posix": "*",
-    "cclilshy/p-ripple-core": "dev-main"
+    "cclilshy/p-ripple-core": "^0.2.91"
   },
   "require-dev": {
     "workerman/workerman": "^4.1",

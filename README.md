@@ -134,6 +134,122 @@ if (PHP_SAPI === 'cli') {
 }
 ```
 
+##### 运行效果
+![display](https://raw.githubusercontent.com/cloudtay/p-ripple-drive/main/assets/display.jpg)
+
+
+##### 基准测试 PRipple
+
+```bash
+ab -n 10000 -c 40 -k http://127.0.0.1:8008/ #command
+
+This is ApacheBench, Version 2.3 <$Revision: 1903618 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking 127.0.0.1 (be patient)
+Completed 1000 requests
+Completed 2000 requests
+Completed 3000 requests
+Completed 4000 requests
+Completed 5000 requests
+Completed 6000 requests
+Completed 7000 requests
+Completed 8000 requests
+Completed 9000 requests
+Completed 10000 requests
+Finished 10000 requests
+
+
+Server Software:        
+Server Hostname:        127.0.0.1
+Server Port:            8008
+
+Document Path:          /
+Document Length:        11 bytes
+
+Concurrency Level:      40
+Time taken for tests:   6.106 seconds
+Complete requests:      10000
+Failed requests:        0
+Keep-Alive requests:    10000
+Total transferred:      11220000 bytes
+HTML transferred:       110000 bytes
+Requests per second:    1637.70 [#/sec] (mean)
+Time per request:       24.424 [ms] (mean)
+Time per request:       0.611 [ms] (mean, across all concurrent requests)
+Transfer rate:          1794.44 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   0.1      0       2
+Processing:     2   24  15.1     20     187
+Waiting:        2   24  15.1     20     187
+Total:          2   24  15.1     20     187
+
+Percentage of the requests served within a certain time (ms)
+  50%     20
+  66%     23
+  75%     25
+  80%     27
+  90%     34
+  95%     45
+  98%     71
+  99%     98
+ 100%    187 (longest request)
+```
+
+##### 基准测试 Nginx+FPM 驱动
+
+```bash
+ab -n 10000 -c 40 -k http://127.0.0.1:80/ #command
+
+This is ApacheBench, Version 2.3 <$Revision: 1903618 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking 127.0.0.1 (be patient)
+Completed 1000 requests
+^C
+
+Server Software:        
+Server Hostname:        127.0.0.1
+Server Port:            8000
+
+Document Path:          /
+Document Length:        11 bytes
+
+Concurrency Level:      40
+Time taken for tests:   17.470 seconds
+Complete requests:      1558
+Failed requests:        0
+Keep-Alive requests:    0
+Total transferred:      1782352 bytes
+HTML transferred:       17138 bytes
+Requests per second:    89.18 [#/sec] (mean)
+Time per request:       448.532 [ms] (mean)
+Time per request:       11.213 [ms] (mean, across all concurrent requests)
+Transfer rate:          99.63 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   0.2      0       2
+Processing:    12  435  41.3    437     500
+Waiting:       11  435  41.3    437     500
+Total:         13  436  41.2    437     501
+
+Percentage of the requests served within a certain time (ms)
+  50%    437
+  66%    441
+  75%    444
+  80%    445
+  90%    457
+  95%    467
+  98%    476
+  99%    487
+ 100%    501 (longest request)
+```
+
 > open `http://127.0.0.1:8008/`
 
 #### thinkphp 使用方法

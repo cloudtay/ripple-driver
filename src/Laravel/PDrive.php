@@ -36,13 +36,10 @@ namespace Psc\Drive\Laravel;
 
 use Illuminate\Console\Command;
 use P\System;
-use Psc\Core\Output;
-
 use function base_path;
 use function file_get_contents;
 use function P\run;
 use function putenv;
-
 use const PHP_BINARY;
 
 /**
@@ -75,28 +72,26 @@ class PDrive extends Command
         $appPath = base_path();
         $listen  = $this->option('listen');
         $threads = $this->option('threads');
-
         putenv("P_RIPPLE_APP_PATH=$appPath");
         putenv("P_RIPPLE_LISTEN=$listen");
         putenv("P_RIPPLE_THREADS=$threads");
-
         $task = System::Process()->task(function () use ($listen) {
-            $session            = System::Proc()->open(PHP_BINARY);
+            $session = System::Proc()->open(PHP_BINARY);
+            $session->input(file_get_contents(__DIR__ . '/Guide.php'));
+            $session->inputEot();
+
             $session->onMessage = function ($data) {
-                Output::info($data);
+                echo $data;
             };
 
             $session->onErrorMessage = function ($data) {
-                Output::error($data);
+                echo $data;
             };
 
-            $session->input(
-                file_get_contents(__DIR__ . '/Guide.php')
-            );
-
-            $session->inputEot();
+            $session->onClose = function () {
+                echo 'Session closed.';
+            };
         });
-
         $task->run();
         run();
     }

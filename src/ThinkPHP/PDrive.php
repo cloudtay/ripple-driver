@@ -40,12 +40,10 @@ use think\console\Command;
 use think\console\Input;
 use think\console\input\Option;
 use think\console\Output;
-
-use function P\run;
-use function base_path;
 use function file_get_contents;
+use function P\run;
 use function putenv;
-
+use function root_path;
 use const PHP_BINARY;
 
 class PDrive extends Command
@@ -60,8 +58,6 @@ class PDrive extends Command
         $this->addOption('threads', 't', Option::VALUE_OPTIONAL, 'threads', 4);
     }
 
-    private HttpServer $httpServer;
-
     /**
      * @param Input  $input
      * @param Output $output
@@ -69,7 +65,7 @@ class PDrive extends Command
      */
     protected function execute(Input $input, Output $output): void
     {
-        $appPath = base_path();
+        $appPath = root_path();
         $listen  = $input->getOption('listen');
         $threads = $input->getOption('threads');
 
@@ -78,20 +74,21 @@ class PDrive extends Command
         putenv("P_RIPPLE_THREADS=$threads");
 
         $task = System::Process()->task(function () use ($listen) {
-            $session            = System::Proc()->open(PHP_BINARY);
+            $session = System::Proc()->open(PHP_BINARY);
+            $session->input(file_get_contents(__DIR__ . '/Guide.php'));
+            $session->inputEot();
+
             $session->onMessage = function ($data) {
-                \Psc\Core\Output::info($data);
+                echo $data;
             };
 
             $session->onErrorMessage = function ($data) {
-                Output::error($data);
+                echo $data;
             };
 
-            $session->input(
-                file_get_contents(__DIR__ . '/Guide.php')
-            );
-
-            $session->inputEot();
+            $session->onClose = function () {
+                echo 'Session closed.';
+            };
         });
 
         $task->run();
