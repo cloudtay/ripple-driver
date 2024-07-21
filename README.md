@@ -1,21 +1,32 @@
-### 安装
+> ⚠️ This document is translated by an AI language model and may not be updated in time. Please refer to the original
+> text.
+
+### Project Description
+
+> This project provides mainstream PHP frameworks with the ability to use PRipple drivers, enabling original projects to
+> run in CLI mode without modifying the project code, accelerating the running speed of the framework.
+> Achieve compile-level performance (about 10~40 times), suitable for high concurrency scenarios
+
+### Install in project
+
+> Install via composer
 
 ```bash
 composer require cclilshy/p-ripple-drive
 ```
 
-### 配置
+### Assembly plan reference
 
-#### workerman 使用方法
+#### workerman
 
 ```php
 Worker::$eventLoopClass = Workerman::class;
 Worker::runAll();
 ```
 
-#### webman 使用方法
+#### webman
 
-> 修改配置文件config/server.php服务配置文件
+> Modify the configuration file config/server.php service configuration file
 
 ```php
 return [
@@ -24,32 +35,33 @@ return [
 ];
 ```
 
----
+#### Laravel & ThinkPHP project differences
 
-> ⚠️ 在`Laravel`,`ThinkPHP下`的CLI模式, 整个运行过程的 `Controller` `Service`
-> 等 `Container::make` `Container::getInstance()` 构建的单例
-> 只会被构造一次, 意味着如果你使用 `Controller::__construct(Request $request)`
-> 的方式构造了一个控制器将导致全局的`Controller->request`将访问到初次构造的请求对象,
-> 因此在开发过程应特别关心这一点, Request应该具体到某个Action的参数上以确保线程安全,
-> CLI模式在这点上与FPM截然不同, 但这也是它能够拥有火箭般速度的原因之一
+> ⚠️In the CLI mode of `Laravel`, `ThinkPHP`, the `Controller` `Service` of the entire running process
+> The singleton constructed by `Container` will only be constructed once at runtime (a globally unique controller
+> object), and will not be destroyed during the entire running process.
+> You should pay special attention to this during the development process. Request should be specific to the parameters
+> of an Action to ensure thread safety.
+> CLI mode is very different from FPM in this regard, but this is one of the reasons why it can be so fast
 
-#### laravel 使用方法
-
-> 无需修改任何原代码即可使用,你需要有一定了解CLI运行模式的机制,并知悉下列函数在运行过程中会发生什么以决定如何使用它们?如
+> ⚠️You need to have a certain understanding of the mechanism of CLI running mode, and know what will happen during the
+> running of the following functions to decide how to use them? Such as
 > `dd` `var_dump` `echo` `exit` `die`,
 
+#### How to use Laravel
+
 ```bash
-#安装
+#Install
 composer require cclilshy/p-ripple-drive
 
-#运行
+#run
 php artisan p:run
 
-# -l | --listen     服务监听地址,默认为 http://127.0.0.1:8008
-# -t | --threads    服务线程数,默认为4
+# -l | --listen Service listening address, the default is http://127.0.0.1:8008
+# -t | --threads Number of service threads, default is 4
 ```
 
-##### 异步文件下载
+##### Asynchronous file download
 
 ```php
 Route::get('/download', function (Request $request) {
@@ -57,17 +69,152 @@ Route::get('/download', function (Request $request) {
 });
 ```
 
+##### running result
+
+![display](https://raw.githubusercontent.com/cloudtay/p-ripple-drive/main/assets/display.jpg)
+
+##### Benchmark PRipple
+
+```bash
+ab -n 10000 -c 40 -k http://127.0.0.1:8008/ #command
+
+This is ApacheBench, Version 2.3 <$Revision: 1903618 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking 127.0.0.1 (be patient)
+Completed 1000 requests
+Completed 2000 requests
+Completed 3000 requests
+Completed 4000 requests
+Completed 5000 requests
+Completed 6000 requests
+Completed 7000 requests
+Completed 8000 requests
+Completed 9000 requests
+Completed 10000 requests
+Completed 10000 requests
+
+
+Server Software:
+Server Hostname: 127.0.0.1
+Server Port: 8008
+
+Document Path: /
+Document length: 11 bytes
+
+Concurrency Level: 40
+Time taken for tests: 6.106 seconds
+Complete requests: 10000
+Failed requests: 0
+Keep-Alive requests: 10000
+Total transferred: 11220000 bytes
+HTML transferred: 110000 bytes
+Requests per second: 1637.70 [#/sec] (mean)
+Time per request: 24.424 [ms] (mean)
+Time per request: 0.611 [ms] (mean, across all concurrent requests)
+Transfer rate: 1794.44 [Kbytes/sec] received
+
+Connection times (ms)
+              min mean[+/-sd] median max
+Connect: 0 0 0.1 0 2
+Processing: 2 24 15.1 20 187
+Waiting: 2 24 15.1 20 187
+Total: 2 24 15.1 20 187
+
+Percentage of the requests served within a certain time (ms)
+  50% 20
+  66% 23
+  75% 25
+  80% 27
+  90% 34
+  95% 45
+  98% 71
+  99% 98
+ 100% 187 (longest request)
+```
+
+##### Benchmark Nginx+FPM driver
+
+```bash
+ab -n 10000 -c 40 -k http://127.0.0.1:80/ #command
+
+This is ApacheBench, Version 2.3 <$Revision: 1903618 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking 127.0.0.1 (be patient)
+Completed 1000 requests
+^C
+
+Server Software:
+Server Hostname: 127.0.0.1
+Server Port: 8000
+
+Document Path: /
+Document length: 11 bytes
+
+Concurrency Level: 40
+Time taken for tests: 17.470 seconds
+Complete requests: 1558
+Failed requests: 0
+Keep-Alive requests: 0
+Total transferred: 1782352 bytes
+HTML transferred: 17138 bytes
+Requests per second: 89.18 [#/sec] (mean)
+Time per request: 448.532 [ms] (mean)
+Time per request: 11.213 [ms] (mean, across all concurrent requests)
+Transfer rate: 99.63 [Kbytes/sec] received
+
+Connection times (ms)
+              min mean[+/-sd] median max
+Connect: 0 0 0.2 0 2
+Processing: 12 435 41.3 437 500
+Waiting: 11 435 41.3 437 500
+Total: 13 436 41.2 437 501
+
+Percentage of the requests served within a certain time (ms)
+  50% 437
+  66% 441
+  75% 444
+  80% 445
+  90% 457
+  95% 467
+  98% 476
+  99% 487
+ 100% 501 (longest request)
+```
+
+> open `http://127.0.0.1:8008/`
+
+#### How to use thinkphp
+
+```bash
+#Install
+composer require cclilshy/p-ripple-drive
+
+#run
+php think p:run
+
+# -l | --listen Service listening address, the default is http://127.0.0.1:8008
+# -t | --threads Number of service threads, default is 4
+```
+
+> open `http://127.0.0.1:8008/`
 ---
 
-> 在CLI运行模式下一般请求无法直接访问public路径下的文件
-> 你可以通过原始的方式配置代理到public路径或自行创建路由解决这一需求
+### Static file access
 
-##### 解决方案(Nginx代理,推荐)
+> Traditional FPM projects cannot directly access files under the public path in CLI running mode.
+> You can configure the proxy to the public path through Nginx routing or create your own route to solve this need
+> The following are two reference solutions (Laravel)
 
-> 配置Nginx伪静态
+##### Solution (Nginx proxy, recommended)
+
+> Configure Nginx pseudo-static
 
 ```nginx
-location / {
+location/{
     try_files $uri $uri/ @backend;
 }
 
@@ -80,9 +227,9 @@ location @backend {
 }
 ```
 
-##### 解决方案(独立运行)
+##### Solution (standalone operation)
 
-> 添加Laravel路由项
+> Add Laravel routing items
 
 ```php
 if (PHP_SAPI === 'cli') {
@@ -134,140 +281,6 @@ if (PHP_SAPI === 'cli') {
 }
 ```
 
-##### 运行效果
-![display](https://raw.githubusercontent.com/cloudtay/p-ripple-drive/main/assets/display.jpg)
+### More ways to use PRipple
 
-
-##### 基准测试 PRipple
-
-```bash
-ab -n 10000 -c 40 -k http://127.0.0.1:8008/ #command
-
-This is ApacheBench, Version 2.3 <$Revision: 1903618 $>
-Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
-Licensed to The Apache Software Foundation, http://www.apache.org/
-
-Benchmarking 127.0.0.1 (be patient)
-Completed 1000 requests
-Completed 2000 requests
-Completed 3000 requests
-Completed 4000 requests
-Completed 5000 requests
-Completed 6000 requests
-Completed 7000 requests
-Completed 8000 requests
-Completed 9000 requests
-Completed 10000 requests
-Finished 10000 requests
-
-
-Server Software:        
-Server Hostname:        127.0.0.1
-Server Port:            8008
-
-Document Path:          /
-Document Length:        11 bytes
-
-Concurrency Level:      40
-Time taken for tests:   6.106 seconds
-Complete requests:      10000
-Failed requests:        0
-Keep-Alive requests:    10000
-Total transferred:      11220000 bytes
-HTML transferred:       110000 bytes
-Requests per second:    1637.70 [#/sec] (mean)
-Time per request:       24.424 [ms] (mean)
-Time per request:       0.611 [ms] (mean, across all concurrent requests)
-Transfer rate:          1794.44 [Kbytes/sec] received
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0    0   0.1      0       2
-Processing:     2   24  15.1     20     187
-Waiting:        2   24  15.1     20     187
-Total:          2   24  15.1     20     187
-
-Percentage of the requests served within a certain time (ms)
-  50%     20
-  66%     23
-  75%     25
-  80%     27
-  90%     34
-  95%     45
-  98%     71
-  99%     98
- 100%    187 (longest request)
-```
-
-##### 基准测试 Nginx+FPM 驱动
-
-```bash
-ab -n 10000 -c 40 -k http://127.0.0.1:80/ #command
-
-This is ApacheBench, Version 2.3 <$Revision: 1903618 $>
-Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
-Licensed to The Apache Software Foundation, http://www.apache.org/
-
-Benchmarking 127.0.0.1 (be patient)
-Completed 1000 requests
-^C
-
-Server Software:        
-Server Hostname:        127.0.0.1
-Server Port:            8000
-
-Document Path:          /
-Document Length:        11 bytes
-
-Concurrency Level:      40
-Time taken for tests:   17.470 seconds
-Complete requests:      1558
-Failed requests:        0
-Keep-Alive requests:    0
-Total transferred:      1782352 bytes
-HTML transferred:       17138 bytes
-Requests per second:    89.18 [#/sec] (mean)
-Time per request:       448.532 [ms] (mean)
-Time per request:       11.213 [ms] (mean, across all concurrent requests)
-Transfer rate:          99.63 [Kbytes/sec] received
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0    0   0.2      0       2
-Processing:    12  435  41.3    437     500
-Waiting:       11  435  41.3    437     500
-Total:         13  436  41.2    437     501
-
-Percentage of the requests served within a certain time (ms)
-  50%    437
-  66%    441
-  75%    444
-  80%    445
-  90%    457
-  95%    467
-  98%    476
-  99%    487
- 100%    501 (longest request)
-```
-
-> open `http://127.0.0.1:8008/`
-
-#### thinkphp 使用方法
-
-```bash
-#安装
-composer require cclilshy/p-ripple-drive
-
-#运行
-php think p:run
-
-# -l | --listen     服务监听地址,默认为 http://127.0.0.1:8008
-# -t | --threads    服务线程数,默认为4
-```
-
-> open `http://127.0.0.1:8008/`
----
-
-### 快速上手
-
-最新文档请移步 [《使用文档》](https://github.com/cloudtay/p-ripple-core.git)
+For the latest documentation, please go to ["Usage Documentation"](https://github.com/cloudtay/p-ripple-core.git)

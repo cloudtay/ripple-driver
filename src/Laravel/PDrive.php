@@ -35,12 +35,27 @@
 namespace Psc\Drive\Laravel;
 
 use Illuminate\Console\Command;
+use JetBrains\PhpStorm\NoReturn;
 use P\System;
+use Psc\Core\Output;
+use Psc\Core\Stream\Stream;
+use Psc\Std\Stream\Exception\ConnectionException;
+
 use function base_path;
-use function file_get_contents;
+use function cli_set_process_title;
+use function P\onSignal;
+use function P\repeat;
 use function P\run;
 use function putenv;
+use function sprintf;
+use function file_exists;
+use function fopen;
+
 use const PHP_BINARY;
+use const PHP_EOL;
+use const SIGINT;
+use const SIGQUIT;
+use const SIGTERM;
 
 /**
  * Class HttpService
@@ -52,7 +67,7 @@ class PDrive extends Command
      *
      * @var string
      */
-    protected $signature = 'p:run 
+    protected $signature = 'p:run
     {--l|listen=http://127.0.0.1:8008}
     {--t|threads=4}
     ';
@@ -69,30 +84,59 @@ class PDrive extends Command
      */
     public function handle(): void
     {
+        cli_set_process_title('Laravel-PD');
         $appPath = base_path();
         $listen  = $this->option('listen');
         $threads = $this->option('threads');
+
         putenv("P_RIPPLE_APP_PATH=$appPath");
         putenv("P_RIPPLE_LISTEN=$listen");
         putenv("P_RIPPLE_THREADS=$threads");
-        $task = System::Process()->task(function () use ($listen) {
-            $session = System::Proc()->open(PHP_BINARY);
-            $session->input(file_get_contents(__DIR__ . '/Guide.php'));
-            $session->inputEot();
 
-            $session->onMessage = function ($data) {
-                echo $data;
-            };
+        $guildFile   = __DIR__ . '/Guide.php';
+        $guildOutput = "{$guildFile}.lock";
 
-            $session->onErrorMessage = function ($data) {
-                echo $data;
-            };
+        if (file_exists($guildOutput)) {
+            Output::warning('The service is already running.');
+            exit(0);
+        }
 
-            $session->onClose = function () {
-                echo 'Session closed.';
-            };
-        });
-        $task->run();
+        $session = System::Proc()->open();
+        $session->input(sprintf("%s %s\n", PHP_BINARY, __DIR__ . '/Guide.php'));
+        repeat(function ($cancel) use ($guildOutput, $session) {
+            if (file_exists($guildOutput)) {
+                $cancel();
+
+                $session->inputSignal(SIGTERM);
+
+                $this->guildOutputStream = new Stream(fopen($guildOutput, 'r+'));
+                $this->guildOutputStream->setBlocking(false);
+                $this->guildOutputStream->onReadable(function (Stream $stream) {
+                    echo $stream->read(8192);
+                });
+
+                onSignal(SIGINT, fn () => $this->onQuitSignal());
+                onSignal(SIGTERM, fn () => $this->onQuitSignal());
+                onSignal(SIGQUIT, fn () => $this->onQuitSignal());
+            }
+        }, 0.1);
+
         run();
+    }
+
+    /**
+     * @return void
+     */
+    private Stream $guildOutputStream;
+
+    /**
+     * @return void
+     * @throws ConnectionException
+     */
+    #[NoReturn] public function onQuitSignal(): void
+    {
+        $this->guildOutputStream->write(PHP_EOL);
+        $this->guildOutputStream->close();
+        exit(0);
     }
 }

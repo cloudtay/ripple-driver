@@ -35,15 +35,16 @@
 namespace Psc\Drive\ThinkPHP;
 
 use P\System;
-use Psc\Library\Net\Http\Server\HttpServer;
 use think\console\Command;
 use think\console\Input;
 use think\console\input\Option;
 use think\console\Output;
+
 use function file_get_contents;
 use function P\run;
 use function putenv;
 use function root_path;
+
 use const PHP_BINARY;
 
 class PDrive extends Command

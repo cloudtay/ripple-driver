@@ -36,6 +36,7 @@
 use P\IO;
 use P\Net;
 use P\System;
+use Psc\Core\Stream\Stream;
 use Psc\Library\Net\Http\Server\HttpServer;
 use Psc\Library\Net\Http\Server\Request;
 use Psc\Library\Net\Http\Server\Response;
@@ -43,6 +44,8 @@ use Psc\Library\System\Process\Runtime;
 use Psc\Library\System\Process\Task;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
+
+use function P\onSignal;
 use function P\run;
 
 $guide = $class = new class () {
@@ -50,19 +53,55 @@ $guide = $class = new class () {
     private string     $appPath;
     private string     $listen;
     private string     $threads;
+    private Stream     $output;
+    private string     $pipe = __FILE__ . '.lock';
 
+    /**
+     * @var Runtime[]
+     */
+    private array $runtimes = [];
+
+    /**
+     * @var array
+     */
+    private array $lastMessages = [];
+
+    /**
+     * @return void
+     */
     public function run(): void
     {
-        error_reporting(E_ALL & ~E_WARNING);
+        \error_reporting(\E_ALL & ~\E_WARNING);
+        \cli_set_process_title('Laravel-PD-guard');
+        $this->pipe = __FILE__ . '.lock';
+
+        if (!\file_exists($this->pipe)) {
+            \posix_mkfifo($this->pipe, 0600);
+        }
+
         $this->appPath = \getenv('P_RIPPLE_APP_PATH');
         $this->listen  = \getenv('P_RIPPLE_LISTEN');
         $this->threads = \getenv('P_RIPPLE_THREADS');
 
         include_once $this->appPath . '/vendor/autoload.php';
 
+        $this->output = new Stream(\fopen($this->pipe, 'r+'));
+        $this->output->setBlocking(false);
+        $this->output->onReadable(function () {
+            if ($this->output->read(1) === \PHP_EOL) {
+                $this->onQuitSignal();
+            }
+        });
+
+        onSignal(\SIGINT, fn () => $this->onQuitSignal());
+        onSignal(\SIGTERM, fn () => $this->onQuitSignal());
+        onSignal(\SIGQUIT, fn () => $this->onQuitSignal());
+
         $context      = \stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->server = Net::Http()->server($this->listen, $context);
         $task         = System::Process()->task(function (HttpServer $server) {
+            \cli_set_process_title('Laravel-PD-thread');
+
             $application       = include_once $this->appPath . '/bootstrap/app.php';
             $server->onRequest = function (
                 Request  $request,
@@ -79,9 +118,11 @@ $guide = $class = new class () {
                 );
 
                 $symfonyResponse = $application->handle($laravelRequest);
+
                 $response->setStatusCode($symfonyResponse->getStatusCode());
                 $response->setProtocolVersion($symfonyResponse->getProtocolVersion());
                 $response->headers->add($symfonyResponse->headers->all());
+
                 if ($symfonyResponse instanceof BinaryFileResponse) {
                     $response->setContent(
                         \fopen($symfonyResponse->getFile()->getPathname(), 'r'),
@@ -107,7 +148,6 @@ $guide = $class = new class () {
         }
 
         $this->monitor();
-
         run();
     }
 
@@ -118,10 +158,12 @@ $guide = $class = new class () {
     private function guard(Task $task): void
     {
         $runtime = $task->run($this->server);
-        $runtime->finally(function () use ($task) {
+        $runtime->finally(function () use ($task, $runtime) {
             $this->guard($task);
+            unset($this->runtimes[\spl_object_hash($runtime)]);
+            $this->printState();
         });
-        $this->runtimes[] = $runtime;
+        $this->runtimes[\spl_object_hash($runtime)] = $runtime;
         $this->printState();
     }
 
@@ -142,28 +184,19 @@ $guide = $class = new class () {
     {
         $monitor           = IO::File()->watch($this->appPath, 'php');
         $monitor->onTouch  = function (string $file) {
-            $this->pushMessage("File touched: {$file}");
+            $this->pushMessage("file touched: {$file}");
             $this->reload();
         };
         $monitor->onModify = function (string $file) {
-            $this->pushMessage("File modified: {$file}");
+            $this->pushMessage("file modified: {$file}");
             $this->reload();
         };
         $monitor->onRemove = function (string $file) {
-            $this->pushMessage("File removed: {$file}");
+            $this->pushMessage("file removed: {$file}");
             $this->reload();
         };
     }
 
-    /**
-     * @var Runtime[]
-     */
-    private array $runtimes = [];
-
-    /**
-     * @var array
-     */
-    private array $lastMessages = [];
 
     /**
      * @param string $message
@@ -182,25 +215,26 @@ $guide = $class = new class () {
      */
     private function printState(): void
     {
-        echo "\033c";
+        $this->output->write("\033c");
         $pid  = \posix_getpid();
         $pids = [];
         foreach ($this->runtimes as $runtime) {
             $pids[] = $runtime->getProcessId();
         }
-        echo "\033[1;34mPRipple\033[0m \033[1;32mLaunched\033[0m\n";
-        echo "\n";
-        echo $this->formatRow(['App Path', $this->appPath], 'info');
-        echo $this->formatRow(['Listen', $this->listen], 'info');
-        echo $this->formatRow(["Threads", $this->threads], 'info');
-        echo "\n";
-        echo $this->formatRow(["Master"], 'thread');
+        $this->output->write("\033[1;34mPRipple\033[0m \033[1;32mLaunched\033[0m\n");
+        $this->output->write("\n");
+        $this->output->write($this->formatRow(['Compile'], 'info'));
+        $this->output->write($this->formatRow(['PATH', $this->appPath], 'info'));
+        $this->output->write($this->formatRow(['Listen', $this->listen], 'info'));
+        $this->output->write($this->formatRow(["Threads", $this->threads], 'info'));
+        $this->output->write("\n");
+        $this->output->write($this->formatRow(["Master"], 'thread'));
         foreach ($pids as $pid) {
-            echo $this->formatRow(["├─ {$pid} Thread", 'Running'], 'thread');
+            $this->output->write($this->formatRow(["├─ {$pid} Thread", 'Running'], 'thread'));
         }
-        echo "\n";
+        $this->output->write("\n");
         foreach ($this->lastMessages as $message) {
-            echo $this->formatList($message);
+            $this->output->write($this->formatList($message));
         }
     }
 
@@ -239,6 +273,20 @@ $guide = $class = new class () {
             'thread' => "\033[1;33m",
             default  => "",
         };
+    }
+
+    /**
+     * @return void
+     */
+    private function onQuitSignal(): void
+    {
+        while ($runtime = \array_shift($this->runtimes)) {
+            $runtime->stop();
+        }
+
+        $this->output->close();
+
+        \unlink($this->pipe);
     }
 };
 

@@ -43,6 +43,7 @@ use Psc\Library\System\Process\Runtime;
 use Psc\Library\System\Process\Task;
 use think\App;
 use think\response\File;
+
 use function P\run;
 
 $guide = $class = new class () {
@@ -53,7 +54,7 @@ $guide = $class = new class () {
 
     public function run(): void
     {
-        error_reporting(E_ALL & ~E_WARNING);
+        \error_reporting(\E_ALL & ~\E_WARNING);
         $this->appPath = \getenv('P_RIPPLE_APP_PATH');
         $this->listen  = \getenv('P_RIPPLE_LISTEN');
         $this->threads = \getenv('P_RIPPLE_THREADS');
