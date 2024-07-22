@@ -32,20 +32,19 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive;
+namespace Psc\Drive\Laravel;
 
-use Psc\Drive\ThinkPHP\PDrive;
-use think\Service;
+use Illuminate\Support\ServiceProvider;
 
-/**
- * ThinkPHP服务容器
- */
-class ThinkPHPService extends Service
+class Provider extends ServiceProvider
 {
+    /**
+     * Register any application services.
+     *
+     * @return void
+     */
     public function register(): void
     {
-        $this->commands([
-            'p:run' => PDrive::class
-        ]);
+        $this->commands([PDrive::class]);
     }
 }

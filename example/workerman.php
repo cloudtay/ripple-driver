@@ -36,7 +36,7 @@ include_once __DIR__ . '/../vendor/autoload.php';
 
 use GuzzleHttp\Promise\Promise;
 use Psc\Core\Output;
-use Psc\Drive\Workerman;
+use Psc\Drive\Workerman\Workerman;
 use Workerman\Timer;
 use Workerman\Worker;
 

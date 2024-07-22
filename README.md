@@ -1,13 +1,90 @@
-> ⚠️ This document is translated by an AI language model and may not be updated in time. Please refer to the original
-> text.
-
-### Project Description
+## Project Description
 
 > This project provides mainstream PHP frameworks with the ability to use PRipple drivers, enabling original projects to
-> run in CLI mode without modifying the project code, accelerating the running speed of the framework.
-> Achieve compile-level performance (about 10~40 times), suitable for high concurrency scenarios
+> run in CLI mode without modifying the project code.
+> Accelerate the running speed of the framework to achieve compile-level performance (approximately 5 to 10 times + that
+> of traditional FPM), suitable for high-concurrency scenarios;
 
-### Install in project
+> PRipple will not modify or interfere with the operating mechanism of the framework. Your code can work almost the same
+> as the PHP-FPM environment in PRipple driver mode, but it has huge advantages in performance improvement.
+> And extends many modern PHP asynchronous programming capabilities such that you can do these things in the controller:
+
+### Feature defer
+
+```php
+public function index(Request $request) : string
+{
+    \P\defer(function(){
+        //TODO: The code here will run after return, allowing you to do certain things after returning the request.
+    });
+    return 'Hello PRipple';
+}
+```
+
+### Feature process
+
+> For long-time-consuming applications, you can open a separate process to avoid blocking the main process. For process
+> control, you can see more PRipple usage at the end of the article.
+
+```php
+public function index(Request $request) : string
+{
+    $task = P\System::Process()->task(function(){
+        // childProcess
+    });
+    $task->run();
+    
+    $runtime = $task->run(); // Return a Runtime object
+    $runtime->stop(); // Cancel the run (signal SIGTERM)
+    $runtime->stop(true); // Forced termination, equivalent to $runtime->kill()
+    $runtime->kill(); // Forced termination (signal SIGKILL)
+    $runtime->signal(SIGTERM); //Send a signal, providing a more refined control method
+    $runtime->then(function($exitCode){}); // The code here will be triggered when the program exits normally, code is the exit code
+    $runtime->except(function(){}); // The code here will be triggered when the program exits abnormally. Exceptions can be handled here, such as process daemon/task restart
+    $runtime->finally(function(){}); // This code will be triggered whether the program exits normally or abnormally.
+    $runtime->getProcessId(); // Get the child process ID
+    $runtime->getPromise(); // Get the Promise object
+}
+```
+
+### Feature await
+
+```php
+public function index(Request $request) : string
+{
+    // Read a file in non-blocking process mode
+    $content = \P\await(
+        \P\IO::File()->getContents(__FILE__)
+    );
+    
+    return $content;
+}
+```
+
+### Features Component Nativeization
+
+> PRipple does not interfere with component specifications, you can use any component you like and get the expected
+> results,
+> For example, the following example will get the standard Response object of `GuzzleHttp`
+
+```php
+public function index(Request $request) : string
+{
+    // Request a URL in non-blocking process mode
+    $response = \P\await(
+        \P\Net::Http()->Guzzle()->getAsync('http://www.baidu.com')
+    );
+    
+    return $response;
+}
+
+```
+
+### Features
+
+> Timer / Socket / WebSocket and other features can be viewed at the end of the article for more PRipple usage
+
+## Install in project
 
 > Install via composer
 
@@ -15,16 +92,18 @@
 composer require cclilshy/p-ripple-drive
 ```
 
-### Assembly plan reference
+## Assembly plan reference
 
-#### workerman
+### WorkerMan
 
 ```php
 Worker::$eventLoopClass = Workerman::class;
 Worker::runAll();
 ```
 
-#### webman
+---
+
+### WebMan
 
 > Modify the configuration file config/server.php service configuration file
 
@@ -35,20 +114,9 @@ return [
 ];
 ```
 
-#### Laravel & ThinkPHP project differences
+---
 
-> ⚠️In the CLI mode of `Laravel`, `ThinkPHP`, the `Controller` `Service` of the entire running process
-> The singleton constructed by `Container` will only be constructed once at runtime (a globally unique controller
-> object), and will not be destroyed during the entire running process.
-> You should pay special attention to this during the development process. Request should be specific to the parameters
-> of an Action to ensure thread safety.
-> CLI mode is very different from FPM in this regard, but this is one of the reasons why it can be so fast
-
-> ⚠️You need to have a certain understanding of the mechanism of CLI running mode, and know what will happen during the
-> running of the following functions to decide how to use them? Such as
-> `dd` `var_dump` `echo` `exit` `die`,
-
-#### How to use Laravel
+### How to use Laravel
 
 ```bash
 #Install
@@ -61,7 +129,15 @@ php artisan p:run
 # -t | --threads Number of service threads, default is 4
 ```
 
-##### Asynchronous file download
+#### Access connection
+
+> Visit `http://127.0.0.1:8008/
+
+#### running result
+
+![display](https://raw.githubusercontent.com/cloudtay/p-ripple-drive/main/assets/display.jpg)
+
+#### Attachment) How to use Laravel asynchronous file download
 
 ```php
 Route::get('/download', function (Request $request) {
@@ -69,11 +145,135 @@ Route::get('/download', function (Request $request) {
 });
 ```
 
-##### running result
+### Static file configuration
 
-![display](https://raw.githubusercontent.com/cloudtay/p-ripple-drive/main/assets/display.jpg)
+> Traditional FPM projects cannot directly access files under the public path in CLI running mode.
+> You can configure the proxy to the public path through Nginx routing or create your own route to solve this need
+> The following are two reference solutions (Laravel)
 
-##### Benchmark PRipple
+* Static file access solution (Nginx proxy)
+
+> Configure Nginx pseudo-static
+
+```nginx
+location/{
+    try_files $uri $uri/ @backend;
+}
+
+location @backend {
+    proxy_pass http://127.0.0.1:8008;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+* Static file access solution (standalone operation)
+
+> Add Laravel routing items
+
+```php
+if (PHP_SAPI === 'cli') {
+    Route::where(['path' => '.*'])->get('/{path}', function (Request $request, \Illuminate\Http\Response $response, string $path) {
+        $fullPath = public_path($path);
+        if (file_exists($fullPath)) {
+            $ext = pathinfo($fullPath, PATHINFO_EXTENSION);
+
+            if (strtolower($ext) === 'php') {
+                $response->setStatusCode(403);
+
+            } elseif (str_contains(urldecode($fullPath), '..')) {
+                $response->setStatusCode(403);
+
+            } else {
+                $mimeType = match ($ext) {
+                    'css' => 'text/css',
+                    'js' => 'application/javascript',
+                    'json' => 'application/json',
+                    'png' => 'image/png',
+                    'jpg', 'jpeg' => 'image/jpeg',
+                    'gif' => 'image/gif',
+                    'svg' => 'image/svg+xml',
+                    'ico' => 'image/x-icon',
+                    'mp4' => 'video/mp4',
+                    'webm' => 'video/webm',
+                    'mp3' => 'audio/mpeg',
+                    'wav' => 'audio/wav',
+                    'webp' => 'image/webp',
+                    'pdf' => 'application/pdf',
+                    'zip' => 'application/zip',
+                    'rar' => 'application/x-rar-compressed',
+                    'tar' => 'application/x-tar',
+                    'gz' => 'application/gzip',
+                    'bz2' => 'application/x-bzip2',
+                    'txt' => 'text/plain',
+                    'html', 'htm' => 'text/html',
+                    default => 'application/octet-stream',
+                };
+                $response->headers->set('Content-Type', $mimeType);
+                $response->setContent(
+                    P\await(P\IO::File()->getContents($fullPath))
+                );
+            }
+            return $response;
+        }
+        return $response->setStatusCode(404);
+    });
+}
+```
+
+---
+
+### How to use ThinkPHP
+
+```bash
+#Install
+composer require cclilshy/p-ripple-drive
+
+#run
+php think p:run
+
+# -l | --listen Service listening address, the default is http://127.0.0.1:8008
+# -t | --threads Number of service threads, default is 4
+```
+
+> open `http://127.0.0.1:8008/`
+---
+
+### Attached) Differences from traditional FPM model
+
+>
+> In the CLI mode of `Laravel`, `ThinkPHP`, the `Controller` `Service` of the entire running process
+> The singleton constructed by `Container` will only be constructed once at runtime by default (a globally unique
+> controller object), and will not be destroyed during the entire running process.
+> This should be of particular concern during the development process and the CLI mode is completely different from FPM
+> in this regard, but this is one of the reasons why it can be as fast as rockets
+
+> PRipple will not interfere with the operating mechanism of the framework, so we provide a solution for the above
+> scenario. Taking Laravel as an example, middleware can be created to rebuild the controller on each request to ensure
+> thread safety.
+
+```php
+//The code of the middleware handle part
+$route = $request->route();
+if ($route instanceof Route) {
+    $route->controller = app($route->getControllerClass());
+}
+return $next($request);
+```
+
+> You need to have a certain understanding of the mechanism of the CLI running mode, and know what will happen during
+> the running of the following functions to decide how to use them? For example
+> `dd` `var_dump` `echo` `exit` `die`
+
+### Attached) More ways to use PRipple
+
+For the latest documentation, please go to ["Usage Documentation"](https://github.com/cloudtay/p-ripple-core.git)
+
+### Attached) Benchmark test
+
+#### Benchmark PRipple
 
 ```bash
 ab -n 10000 -c 40 -k http://127.0.0.1:8008/ #command
@@ -134,7 +334,7 @@ Percentage of the requests served within a certain time (ms)
  100% 187 (longest request)
 ```
 
-##### Benchmark Nginx+FPM driver
+#### Benchmark Nginx+FPM driver
 
 ```bash
 ab -n 10000 -c 40 -k http://127.0.0.1:80/ #command
@@ -185,102 +385,6 @@ Percentage of the requests served within a certain time (ms)
  100% 501 (longest request)
 ```
 
-> open `http://127.0.0.1:8008/`
+#### Difference comparison in production environment
 
-#### How to use thinkphp
-
-```bash
-#Install
-composer require cclilshy/p-ripple-drive
-
-#run
-php think p:run
-
-# -l | --listen Service listening address, the default is http://127.0.0.1:8008
-# -t | --threads Number of service threads, default is 4
-```
-
-> open `http://127.0.0.1:8008/`
----
-
-### Static file access
-
-> Traditional FPM projects cannot directly access files under the public path in CLI running mode.
-> You can configure the proxy to the public path through Nginx routing or create your own route to solve this need
-> The following are two reference solutions (Laravel)
-
-##### Solution (Nginx proxy, recommended)
-
-> Configure Nginx pseudo-static
-
-```nginx
-location/{
-    try_files $uri $uri/ @backend;
-}
-
-location @backend {
-    proxy_pass http://127.0.0.1:8008;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
-```
-
-##### Solution (standalone operation)
-
-> Add Laravel routing items
-
-```php
-if (PHP_SAPI === 'cli') {
-    Route::where(['path' => '.*'])->get('/{path}', function (Request $request, \Illuminate\Http\Response $response, string $path) {
-        $fullPath = public_path($path);
-        if (file_exists($fullPath)) {
-            $ext = pathinfo($fullPath, PATHINFO_EXTENSION);
-
-            if (strtolower($ext) === 'php') {
-                $response->setStatusCode(403);
-
-            } elseif (str_contains(urldecode($fullPath), '..')) {
-                $response->setStatusCode(403);
-
-            } else {
-                $mimeType = match ($ext) {
-                    'css' => 'text/css',
-                    'js' => 'application/javascript',
-                    'json' => 'application/json',
-                    'png' => 'image/png',
-                    'jpg', 'jpeg' => 'image/jpeg',
-                    'gif' => 'image/gif',
-                    'svg' => 'image/svg+xml',
-                    'ico' => 'image/x-icon',
-                    'mp4' => 'video/mp4',
-                    'webm' => 'video/webm',
-                    'mp3' => 'audio/mpeg',
-                    'wav' => 'audio/wav',
-                    'webp' => 'image/webp',
-                    'pdf' => 'application/pdf',
-                    'zip' => 'application/zip',
-                    'rar' => 'application/x-rar-compressed',
-                    'tar' => 'application/x-tar',
-                    'gz' => 'application/gzip',
-                    'bz2' => 'application/x-bzip2',
-                    'txt' => 'text/plain',
-                    'html', 'htm' => 'text/html',
-                    default => 'application/octet-stream',
-                };
-                $response->headers->set('Content-Type', $mimeType);
-                $response->setContent(
-                    P\await(P\IO::File()->getContents($fullPath))
-                );
-            }
-            return $response;
-        }
-        return $response->setStatusCode(404);
-    });
-}
-```
-
-### More ways to use PRipple
-
-For the latest documentation, please go to ["Usage Documentation"](https://github.com/cloudtay/p-ripple-core.git)
+![diff](https://raw.githubusercontent.com/cloudtay/p-ripple-drive/main/assets/diff.jpg)

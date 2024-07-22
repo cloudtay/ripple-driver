@@ -32,7 +32,7 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive;
+namespace Psc\Drive\Workerman;
 
 use Closure;
 use P\System;
@@ -42,6 +42,7 @@ use Revolt\EventLoop\UnsupportedFeatureException;
 use Throwable;
 use Workerman\Events\EventInterface;
 use Workerman\Worker;
+
 use function call_user_func;
 use function call_user_func_array;
 use function count;
@@ -188,6 +189,7 @@ class Workerman implements EventInterface
 
     /**
      * @return void
+     * @throws Throwable
      */
     public function loop(): void
     {

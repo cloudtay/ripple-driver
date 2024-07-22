@@ -34,21 +34,33 @@
 
 namespace Psc\Drive\ThinkPHP;
 
+use JetBrains\PhpStorm\NoReturn;
 use P\System;
+use Psc\Library\System\Proc\Session;
+use Revolt\EventLoop\UnsupportedFeatureException;
 use think\console\Command;
 use think\console\Input;
 use think\console\input\Option;
 use think\console\Output;
 
 use function file_get_contents;
+use function P\onSignal;
 use function P\run;
 use function putenv;
 use function root_path;
 
 use const PHP_BINARY;
+use const SIGINT;
+use const SIGQUIT;
+use const SIGTERM;
 
 class PDrive extends Command
 {
+    /**
+     * @var Session
+     */
+    private Session $session;
+
     /**
      * @return void
      */
@@ -63,6 +75,7 @@ class PDrive extends Command
      * @param Input  $input
      * @param Output $output
      * @return void
+     * @throws UnsupportedFeatureException
      */
     protected function execute(Input $input, Output $output): void
     {
@@ -74,25 +87,40 @@ class PDrive extends Command
         putenv("P_RIPPLE_LISTEN=$listen");
         putenv("P_RIPPLE_THREADS=$threads");
 
-        $task = System::Process()->task(function () use ($listen) {
-            $session = System::Proc()->open(PHP_BINARY);
-            $session->input(file_get_contents(__DIR__ . '/Guide.php'));
-            $session->inputEot();
+        $this->session = System::Proc()->open(PHP_BINARY);
+        $this->session->input(file_get_contents(__DIR__ . '/Guide.php'));
+        $this->session->inputEot();
 
-            $session->onMessage = function ($data) {
-                echo $data;
-            };
+        $this->session->onMessage = function ($data) {
+            echo $data;
+        };
 
-            $session->onErrorMessage = function ($data) {
-                echo $data;
-            };
+        $this->session->onErrorMessage = function ($data) {
+            echo $data;
+        };
 
-            $session->onClose = function () {
-                echo 'Session closed.';
-            };
-        });
+        $this->registerSignalHandler();
 
-        $task->run();
         run();
+    }
+
+    /**
+     * @return void
+     * @throws UnsupportedFeatureException
+     */
+    private function registerSignalHandler(): void
+    {
+        onSignal(SIGINT, fn () => $this->onQuitSignal());
+        onSignal(SIGTERM, fn () => $this->onQuitSignal());
+        onSignal(SIGQUIT, fn () => $this->onQuitSignal());
+    }
+
+    /**
+     * @return void
+     */
+    #[NoReturn] private function onQuitSignal(): void
+    {
+        $this->session->inputSignal(SIGTERM);
+        exit(0);
     }
 }

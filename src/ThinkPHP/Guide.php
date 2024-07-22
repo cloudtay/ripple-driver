@@ -116,11 +116,13 @@ $guide = $class = new class () {
      */
     private function guard(Task $task): void
     {
-        $runtime = $task->run($this->server);
-        $runtime->finally(function () use ($task) {
+        $runtime                                    = $task->run($this->server);
+        $this->runtimes[\spl_object_hash($runtime)] = $runtime;
+        $runtime->finally(function () use ($task, $runtime) {
+            unset($this->runtimes[\spl_object_hash($runtime)]);
+
             $this->guard($task);
         });
-        $this->runtimes[] = $runtime;
         $this->printState();
     }
 

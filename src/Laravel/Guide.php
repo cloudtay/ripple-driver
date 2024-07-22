@@ -33,6 +33,7 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
+use Illuminate\Contracts\Foundation\Application;
 use P\IO;
 use P\Net;
 use P\System;
@@ -45,7 +46,6 @@ use Psc\Library\System\Process\Task;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
-use function P\onSignal;
 use function P\run;
 
 $guide = $class = new class () {
@@ -66,52 +66,39 @@ $guide = $class = new class () {
      */
     private array $lastMessages = [];
 
+
     /**
      * @return void
      */
     public function run(): void
     {
-        \error_reporting(\E_ALL & ~\E_WARNING);
-        \cli_set_process_title('Laravel-PD-guard');
-        $this->pipe = __FILE__ . '.lock';
-
-        if (!\file_exists($this->pipe)) {
-            \posix_mkfifo($this->pipe, 0600);
-        }
-
-        $this->appPath = \getenv('P_RIPPLE_APP_PATH');
-        $this->listen  = \getenv('P_RIPPLE_LISTEN');
-        $this->threads = \getenv('P_RIPPLE_THREADS');
-
-        include_once $this->appPath . '/vendor/autoload.php';
-
-        $this->output = new Stream(\fopen($this->pipe, 'r+'));
-        $this->output->setBlocking(false);
-        $this->output->onReadable(function () {
-            if ($this->output->read(1) === \PHP_EOL) {
-                $this->onQuitSignal();
-            }
-        });
-
-        onSignal(\SIGINT, fn () => $this->onQuitSignal());
-        onSignal(\SIGTERM, fn () => $this->onQuitSignal());
-        onSignal(\SIGQUIT, fn () => $this->onQuitSignal());
+        $this->initConfigure();
 
         $context      = \stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->server = Net::Http()->server($this->listen, $context);
         $task         = System::Process()->task(function (HttpServer $server) {
             \cli_set_process_title('Laravel-PD-thread');
 
-            $application       = include_once $this->appPath . '/bootstrap/app.php';
+            /**
+             * @var Application $application
+             */
+            $application = include_once $this->appPath . '/bootstrap/app.php';
+
+            //            /**
+            //             * @var Kernel $httpKernel
+            //             */
+            //            $httpKernel = $application->make(Kernel::class);
+
             $server->onRequest = function (
                 Request  $request,
                 Response $response
             ) use ($application) {
+
                 $laravelRequest = new \Illuminate\Http\Request(
                     $request->query->all(),
                     $request->request->all(),
-                    [],
                     $request->attributes->all(),
+                    $request->cookies->all(),
                     $request->files->all(),
                     $request->server->all(),
                     $request->getContent(),
@@ -152,18 +139,52 @@ $guide = $class = new class () {
     }
 
     /**
+     * @return void
+     */
+    private function initConfigure(): void
+    {
+        \error_reporting(\E_ALL & ~\E_WARNING);
+        \cli_set_process_title('Laravel-PD-guard');
+
+        $this->pipe = __FILE__ . '.lock';
+
+        if (!\file_exists($this->pipe)) {
+            \posix_mkfifo($this->pipe, 0600);
+        }
+
+        $this->appPath = \getenv('P_RIPPLE_APP_PATH');
+        $this->listen  = \getenv('P_RIPPLE_LISTEN');
+        $this->threads = \getenv('P_RIPPLE_THREADS');
+
+        include_once $this->appPath . '/vendor/autoload.php';
+
+        $this->output = new Stream(\fopen($this->pipe, 'r+'));
+        $this->output->setBlocking(false);
+        $this->output->onReadable(function () {
+            if ($this->output->read(1) === \PHP_EOL) {
+                $this->output->close();
+                foreach ($this->runtimes as $runtime) {
+                    $runtime->stop();
+                }
+                \unlink($this->pipe);
+                exit(0);
+            }
+        });
+    }
+
+    /**
      * @param Task $task
      * @return void
      */
     private function guard(Task $task): void
     {
-        $runtime = $task->run($this->server);
-        $runtime->finally(function () use ($task, $runtime) {
-            $this->guard($task);
-            unset($this->runtimes[\spl_object_hash($runtime)]);
-            $this->printState();
-        });
+        $runtime                                    = $task->run($this->server);
         $this->runtimes[\spl_object_hash($runtime)] = $runtime;
+        $runtime->finally(function () use ($task, $runtime) {
+            unset($this->runtimes[\spl_object_hash($runtime)]);
+
+            $this->guard($task);
+        });
         $this->printState();
     }
 
@@ -172,7 +193,7 @@ $guide = $class = new class () {
      */
     private function reload(): void
     {
-        while ($runtime = \array_shift($this->runtimes)) {
+        foreach ($this->runtimes as $runtime) {
             $runtime->stop();
         }
     }
@@ -197,6 +218,11 @@ $guide = $class = new class () {
         };
     }
 
+    /**
+     * ==========
+     * 终端输出助手
+     * ==========
+     */
 
     /**
      * @param string $message
@@ -229,9 +255,11 @@ $guide = $class = new class () {
         $this->output->write($this->formatRow(["Threads", $this->threads], 'info'));
         $this->output->write("\n");
         $this->output->write($this->formatRow(["Master"], 'thread'));
+
         foreach ($pids as $pid) {
             $this->output->write($this->formatRow(["├─ {$pid} Thread", 'Running'], 'thread'));
         }
+
         $this->output->write("\n");
         foreach ($this->lastMessages as $message) {
             $this->output->write($this->formatList($message));
@@ -273,20 +301,6 @@ $guide = $class = new class () {
             'thread' => "\033[1;33m",
             default  => "",
         };
-    }
-
-    /**
-     * @return void
-     */
-    private function onQuitSignal(): void
-    {
-        while ($runtime = \array_shift($this->runtimes)) {
-            $runtime->stop();
-        }
-
-        $this->output->close();
-
-        \unlink($this->pipe);
     }
 };
 

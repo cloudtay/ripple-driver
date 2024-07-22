@@ -39,17 +39,21 @@ use JetBrains\PhpStorm\NoReturn;
 use P\System;
 use Psc\Core\Output;
 use Psc\Core\Stream\Stream;
+use Psc\Library\System\Proc\Session;
 use Psc\Std\Stream\Exception\ConnectionException;
+use Revolt\EventLoop\UnsupportedFeatureException;
 
 use function base_path;
 use function cli_set_process_title;
+use function file_exists;
+use function fopen;
+use function P\delay;
 use function P\onSignal;
 use function P\repeat;
 use function P\run;
 use function putenv;
 use function sprintf;
-use function file_exists;
-use function fopen;
+use function unlink;
 
 use const PHP_BINARY;
 use const PHP_EOL;
@@ -68,7 +72,7 @@ class PDrive extends Command
      * @var string
      */
     protected $signature = 'p:run
-    {--l|listen=http://127.0.0.1:8008}
+    {--s|listen=http://127.0.0.1:8008}
     {--t|threads=4}
     ';
 
@@ -80,44 +84,54 @@ class PDrive extends Command
     protected $description = 'start the P-Drive service';
 
     /**
+     * @return void
+     */
+    private Stream $guildOutputStream;
+    private string $guildOutput;
+
+    /**
      * Execute the console command.
      */
     public function handle(): void
     {
         cli_set_process_title('Laravel-PD');
         $appPath = base_path();
-        $listen  = $this->option('listen');
-        $threads = $this->option('threads');
+
+        $guildFile         = __DIR__ . '/Guide.php';
+        $this->guildOutput = "{$guildFile}.lock";
+        $listen            = $this->option('listen');
+        $threads           = $this->option('threads');
 
         putenv("P_RIPPLE_APP_PATH=$appPath");
         putenv("P_RIPPLE_LISTEN=$listen");
         putenv("P_RIPPLE_THREADS=$threads");
 
-        $guildFile   = __DIR__ . '/Guide.php';
-        $guildOutput = "{$guildFile}.lock";
-
-        if (file_exists($guildOutput)) {
+        if (file_exists($this->guildOutput)) {
             Output::warning('The service is already running.');
             exit(0);
         }
 
-        $session = System::Proc()->open();
-        $session->input(sprintf("%s %s\n", PHP_BINARY, __DIR__ . '/Guide.php'));
-        repeat(function ($cancel) use ($guildOutput, $session) {
-            if (file_exists($guildOutput)) {
+        $this->session                 = System::Proc()->open();
+        $this->session->onMessage      = (function ($message) {
+            Output::info($message);
+        });
+        $this->session->onErrorMessage = (function ($message) {
+            Output::warning($message);
+        });
+
+        $this->session->input(sprintf("%s %s\n", PHP_BINARY, __DIR__ . '/Guide.php'));
+
+        repeat(function ($cancel) {
+            if (file_exists($this->guildOutput)) {
                 $cancel();
 
-                $session->inputSignal(SIGTERM);
-
-                $this->guildOutputStream = new Stream(fopen($guildOutput, 'r+'));
+                $this->guildOutputStream = new Stream(fopen($this->guildOutput, 'r+'));
                 $this->guildOutputStream->setBlocking(false);
                 $this->guildOutputStream->onReadable(function (Stream $stream) {
                     echo $stream->read(8192);
                 });
 
-                onSignal(SIGINT, fn () => $this->onQuitSignal());
-                onSignal(SIGTERM, fn () => $this->onQuitSignal());
-                onSignal(SIGQUIT, fn () => $this->onQuitSignal());
+                $this->registerSignalHandler();
             }
         }, 0.1);
 
@@ -125,18 +139,36 @@ class PDrive extends Command
     }
 
     /**
-     * @return void
+     * @var Session
      */
-    private Stream $guildOutputStream;
+    private Session $session;
+
+    /**
+     * @return void
+     * @throws UnsupportedFeatureException
+     */
+    private function registerSignalHandler(): void
+    {
+        onSignal(SIGINT, fn () => $this->onQuitSignal());
+        onSignal(SIGTERM, fn () => $this->onQuitSignal());
+        onSignal(SIGQUIT, fn () => $this->onQuitSignal());
+    }
 
     /**
      * @return void
      * @throws ConnectionException
      */
-    #[NoReturn] public function onQuitSignal(): void
+    #[NoReturn] private function onQuitSignal(): void
     {
         $this->guildOutputStream->write(PHP_EOL);
         $this->guildOutputStream->close();
-        exit(0);
+
+        $this->session->inputSignal(SIGTERM);
+        $this->session->close();
+
+        delay(function () {
+            unlink($this->guildOutput);
+            exit(0);
+        }, 1);
     }
 }
