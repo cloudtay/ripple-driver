@@ -46,6 +46,7 @@ use Psc\Library\System\Process\Task;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
+use function P\repeat;
 use function P\run;
 
 $guide = $class = new class () {
@@ -160,16 +161,16 @@ $guide = $class = new class () {
 
         $this->output = new Stream(\fopen($this->pipe, 'r+'));
         $this->output->setBlocking(false);
-        $this->output->onReadable(function () {
-            if ($this->output->read(1) === \PHP_EOL) {
+
+        repeat(function () {
+            if (!\file_exists($this->pipe)) {
                 $this->output->close();
                 foreach ($this->runtimes as $runtime) {
                     $runtime->stop();
                 }
-                \unlink($this->pipe);
                 exit(0);
             }
-        });
+        }, 1);
     }
 
     /**

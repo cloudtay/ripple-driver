@@ -40,14 +40,12 @@ use P\System;
 use Psc\Core\Output;
 use Psc\Core\Stream\Stream;
 use Psc\Library\System\Proc\Session;
-use Psc\Std\Stream\Exception\ConnectionException;
 use Revolt\EventLoop\UnsupportedFeatureException;
 
 use function base_path;
 use function cli_set_process_title;
 use function file_exists;
 use function fopen;
-use function P\delay;
 use function P\onSignal;
 use function P\repeat;
 use function P\run;
@@ -56,7 +54,6 @@ use function sprintf;
 use function unlink;
 
 use const PHP_BINARY;
-use const PHP_EOL;
 use const SIGINT;
 use const SIGQUIT;
 use const SIGTERM;
@@ -156,19 +153,15 @@ class PDrive extends Command
 
     /**
      * @return void
-     * @throws ConnectionException
      */
     #[NoReturn] private function onQuitSignal(): void
     {
-        $this->guildOutputStream->write(PHP_EOL);
-        $this->guildOutputStream->close();
-
         $this->session->inputSignal(SIGTERM);
         $this->session->close();
 
-        delay(function () {
-            unlink($this->guildOutput);
-            exit(0);
-        }, 1);
+        $this->guildOutputStream->close();
+        unlink($this->guildOutput);
+
+        exit(0);
     }
 }
