@@ -38,24 +38,48 @@ use P\IO;
 use P\Net;
 use P\System;
 use Psc\Core\Stream\Stream;
+use Psc\Drive\Utils\Console;
 use Psc\Library\Net\Http\Server\HttpServer;
 use Psc\Library\Net\Http\Server\Request;
 use Psc\Library\Net\Http\Server\Response;
 use Psc\Library\System\Process\Runtime;
 use Psc\Library\System\Process\Task;
+use Psc\Std\Stream\Exception\ConnectionException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Symfony\Component\HttpFoundation\JsonResponse;
 
-use function P\repeat;
 use function P\run;
 
-$guide = $class = new class () {
+/**
+ * 该文件为Laravel的启动引导文件,同时作为服务运行时的主程序,
+ * 储存和维护子进程信息,并与客户端(控制端)通信
+ * 引导文件运行于真空中,所有的输出又sh转发到stdin管道文件
+ * 与控制端通信通过r+w双管道交互指令
+ */
+$guide = new class () {
+    /**
+     *
+     */
+    use Console;
+
+    /**
+     * @var HttpServer
+     */
     private HttpServer $server;
-    private string     $appPath;
-    private string     $listen;
-    private string     $threads;
-    private Stream     $output;
-    private string     $pipe = __FILE__ . '.lock';
+
+    /**
+     * @var string
+     */
+    private string $appPath;
+
+    /**
+     * @var string
+     */
+    private string $listen;
+
+    /**
+     * @var string
+     */
+    private string $threads;
 
     /**
      * @var Runtime[]
@@ -65,19 +89,61 @@ $guide = $class = new class () {
     /**
      * @var array
      */
-    private array $lastMessages = [];
-
+    private array $logs = [];
 
     /**
-     * @return void
+     * 服务输出流文件
+     * @var string
      */
-    public function run(): void
+    private string $serialOutput = __DIR__ . '/Guide.php.output';
+
+    /**
+     * 服务输入流文件
+     * @var string
+     */
+    private string $serialInput = __DIR__ . '/Guide.php.input';
+
+    /**
+     * 服务输出流
+     * @var Stream
+     */
+    private Stream $serialOutputStream;
+
+    /**
+     * 服务输入流
+     * @var Stream
+     */
+    private Stream $serialInputStream;
+
+    /**
+     * @var Task
+     */
+    private Task $task;
+
+    /**
+     *
+     */
+    public function __construct()
     {
-        $this->initConfigure();
+        \error_reporting(\E_ALL & ~\E_WARNING);
+        \cli_set_process_title('Laravel-PD-guard');
+        \posix_setsid();
+
+        $this->serialOutputStream = new Stream(\fopen($this->serialOutput, 'w+'));
+        $this->serialInputStream  = new Stream(\fopen($this->serialInput, 'r'));
+
+        $this->serialOutputStream->setBlocking(false);
+        $this->serialInputStream->setBlocking(false);
+
+        $this->appPath = \getenv('P_RIPPLE_APP_PATH');
+        $this->listen  = \getenv('P_RIPPLE_LISTEN');
+        $this->threads = \getenv('P_RIPPLE_THREADS');
+
+        include_once $this->appPath . '/vendor/autoload.php';
 
         $context      = \stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->server = Net::Http()->server($this->listen, $context);
-        $task         = System::Process()->task(function (HttpServer $server) {
+        $this->task   = System::Process()->task(function (HttpServer $server) {
             \cli_set_process_title('Laravel-PD-thread');
 
             /**
@@ -85,11 +151,12 @@ $guide = $class = new class () {
              */
             $application = include_once $this->appPath . '/bootstrap/app.php';
 
-            //            /**
-            //             * @var Kernel $httpKernel
-            //             */
-            //            $httpKernel = $application->make(Kernel::class);
-
+            /**
+             * @param Request  $request
+             * @param Response $response
+             * @return void
+             * @throws ConnectionException
+             */
             $server->onRequest = function (
                 Request  $request,
                 Response $response
@@ -122,71 +189,26 @@ $guide = $class = new class () {
                     );
                 }
 
-                if ($symfonyResponse instanceof JsonResponse) {
-                    $response->headers->set('Content-Type', 'application/json');
-                }
-
                 $response->respond();
             };
             $server->listen();
         });
-
-        for ($i = 0; $i < $this->threads; $i++) {
-            $this->guard($task);
-        }
-
-        $this->monitor();
-        run();
     }
 
     /**
      * @return void
      */
-    private function initConfigure(): void
+    private function addThread(): void
     {
-        \error_reporting(\E_ALL & ~\E_WARNING);
-        \cli_set_process_title('Laravel-PD-guard');
-
-        $this->pipe = __FILE__ . '.lock';
-
-        if (!\file_exists($this->pipe)) {
-            \posix_mkfifo($this->pipe, 0600);
-        }
-
-        $this->appPath = \getenv('P_RIPPLE_APP_PATH');
-        $this->listen  = \getenv('P_RIPPLE_LISTEN');
-        $this->threads = \getenv('P_RIPPLE_THREADS');
-
-        include_once $this->appPath . '/vendor/autoload.php';
-
-        $this->output = new Stream(\fopen($this->pipe, 'r+'));
-        $this->output->setBlocking(false);
-
-        repeat(function () {
-            if (!\file_exists($this->pipe)) {
-                $this->output->close();
-                foreach ($this->runtimes as $runtime) {
-                    $runtime->stop();
-                }
-                exit(0);
-            }
-        }, 1);
-    }
-
-    /**
-     * @param Task $task
-     * @return void
-     */
-    private function guard(Task $task): void
-    {
-        $runtime                                    = $task->run($this->server);
+        $runtime                                    = $this->task->run($this->server);
         $this->runtimes[\spl_object_hash($runtime)] = $runtime;
-        $runtime->finally(function () use ($task, $runtime) {
-            unset($this->runtimes[\spl_object_hash($runtime)]);
 
-            $this->guard($task);
+        $runtime->finally(function () use ($runtime) {
+            unset($this->runtimes[\spl_object_hash($runtime)]);
+            $this->addThread();
         });
-        $this->printState();
+
+        $this->flushState();
     }
 
     /**
@@ -220,89 +242,59 @@ $guide = $class = new class () {
     }
 
     /**
-     * ==========
-     * 终端输出助手
-     * ==========
-     */
-
-    /**
      * @param string $message
      * @return void
      */
     private function pushMessage(string $message): void
     {
-        $this->lastMessages[] = $message;
-        if (\count($this->lastMessages) > 1) {
-            \array_shift($this->lastMessages);
+        $this->logs[] = $message;
+        if (\count($this->logs) > 1) {
+            \array_shift($this->logs);
         }
     }
 
     /**
      * @return void
      */
-    private function printState(): void
+    private function flushState(): void
     {
-        $this->output->write("\033c");
-        $pid  = \posix_getpid();
-        $pids = [];
+        $this->serialOutputStream->write("\033c");
+        $processIds = [];
         foreach ($this->runtimes as $runtime) {
-            $pids[] = $runtime->getProcessId();
+            $processIds[] = $runtime->getProcessId();
         }
-        $this->output->write("\033[1;34mPRipple\033[0m \033[1;32mLaunched\033[0m\n");
-        $this->output->write("\n");
-        $this->output->write($this->formatRow(['Compile'], 'info'));
-        $this->output->write($this->formatRow(['PATH', $this->appPath], 'info'));
-        $this->output->write($this->formatRow(['Listen', $this->listen], 'info'));
-        $this->output->write($this->formatRow(["Threads", $this->threads], 'info'));
-        $this->output->write("\n");
-        $this->output->write($this->formatRow(["Master"], 'thread'));
+        $this->serialOutputStream->write("\033[1;34mPRipple\033[0m \033[1;32mLaunched\033[0m\n");
+        $this->serialOutputStream->write("\n");
+        $this->serialOutputStream->write($this->formatRow(['Compile'], 'info'));
+        $this->serialOutputStream->write($this->formatRow(['PATH', $this->appPath], 'info'));
+        $this->serialOutputStream->write($this->formatRow(['Listen', $this->listen], 'info'));
+        $this->serialOutputStream->write($this->formatRow(["Threads", $this->threads], 'info'));
+        $this->serialOutputStream->write("\n");
+        $this->serialOutputStream->write($this->formatRow(["Master"], 'thread'));
 
-        foreach ($pids as $pid) {
-            $this->output->write($this->formatRow(["├─ {$pid} Thread", 'Running'], 'thread'));
+        foreach ($processIds as $pid) {
+            $this->serialOutputStream->write($this->formatRow(["├─ {$pid} Thread", 'Running'], 'thread'));
         }
 
-        $this->output->write("\n");
-        foreach ($this->lastMessages as $message) {
-            $this->output->write($this->formatList($message));
+        $this->serialOutputStream->write("\n");
+        foreach ($this->logs as $message) {
+            $this->serialOutputStream->write($this->formatList($message));
         }
     }
 
     /**
-     * @param array  $row
-     * @param string $type
-     * @return string
+     * @return void
      */
-    private function formatRow(array $row, string $type = ''): string
+    public function launch(): void
     {
-        $output    = '';
-        $colorCode = $this->getColorCode($type);
-        foreach ($row as $col) {
-            $output .= \str_pad("{$colorCode}{$col}\033[0m", 40);
+        for ($i = 0; $i < $this->threads; $i++) {
+            $this->addThread();
         }
-        return $output . "\n";
-    }
 
-    /**
-     * @param string $item
-     * @return string
-     */
-    private function formatList(string $item): string
-    {
-        return "  - $item\n";
-    }
+        $this->monitor();
 
-    /**
-     * @param string $type
-     * @return string
-     */
-    private function getColorCode(string $type): string
-    {
-        return match ($type) {
-            'info'   => "\033[1;36m",
-            'thread' => "\033[1;33m",
-            default  => "",
-        };
+        run();
     }
 };
 
-$guide->run();
+$guide->launch();

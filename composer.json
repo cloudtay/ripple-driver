@@ -16,7 +16,7 @@
   "require": {
     "ext-pcntl": "*",
     "ext-posix": "*",
-    "cclilshy/p-ripple-core": "^0.2.94"
+    "cclilshy/p-ripple-core": "dev-dev"
   },
   "require-dev": {
     "workerman/workerman": "^4.1",

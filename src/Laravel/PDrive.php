@@ -47,8 +47,8 @@ use function cli_set_process_title;
 use function file_exists;
 use function fopen;
 use function P\onSignal;
-use function P\repeat;
 use function P\run;
+use function posix_mkfifo;
 use function putenv;
 use function sprintf;
 use function unlink;
@@ -59,7 +59,9 @@ use const SIGQUIT;
 use const SIGTERM;
 
 /**
- * Class HttpService
+ * 驱动使用proc_open指令运行Laravel服务并嫁接sh输出至serialStdin中,
+ * 与服务实体的通讯采用r+w双线管道模式传呼指令,该类只负责启动|通讯服务,
+ * 不作为信息的载体
  */
 class PDrive extends Command
 {
@@ -81,66 +83,91 @@ class PDrive extends Command
     protected $description = 'start the P-Drive service';
 
     /**
+     * 服务主动输出流
      * @return void
      */
-    private Stream $guildOutputStream;
-    private string $guildOutput;
+    private Stream $serialOutputStream;
 
     /**
-     * Execute the console command.
+     * 服务输出流文件
+     * @var string
+     */
+    private string $serialOutput = __DIR__ . '/Guide.php.output';
+
+    /**
+     * 服务输入流文件
+     * @var string
+     */
+    private string $serialStdin = __DIR__ . '/Guide.php.stdin';
+
+    /**
+     * 服务输入流文件
+     * @var string
+     */
+    private string $serialInput = __DIR__ . '/Guide.php.input';
+
+    /**
+     * 运行服务
+     * @return void
+     * @throws UnsupportedFeatureException
      */
     public function handle(): void
     {
         cli_set_process_title('Laravel-PD');
         $appPath = base_path();
 
-        $guildFile         = __DIR__ . '/Guide.php';
-        $this->guildOutput = "{$guildFile}.lock";
-        $listen            = $this->option('listen');
-        $threads           = $this->option('threads');
+        $listen  = $this->option('listen');
+        $threads = $this->option('threads');
 
         putenv("P_RIPPLE_APP_PATH=$appPath");
         putenv("P_RIPPLE_LISTEN=$listen");
         putenv("P_RIPPLE_THREADS=$threads");
 
-        if (file_exists($this->guildOutput)) {
+        if (file_exists($this->serialStdin)) {
             Output::warning('The service is already running.');
+            Output::warning("file exists: {$this->serialStdin}");
             exit(0);
         }
 
-        $this->session                 = System::Proc()->open();
-        $this->session->onMessage      = (function ($message) {
-            Output::info($message);
+        if (!file_exists($this->serialInput)) {
+            posix_mkfifo($this->serialInput, 0600);
+        }
+
+        if (!file_exists($this->serialOutput)) {
+            posix_mkfifo($this->serialOutput, 0600);
+        }
+
+
+        $command = sprintf(
+            "%s %s > %s",
+            PHP_BINARY,
+            __DIR__ . '/Guide.php',
+            $this->serialStdin
+        );
+
+        $this->session = System::Proc()->open();
+        $this->session->input($command);
+
+        $this->registerSignalHandler();
+
+        $this->serialOutputStream = new Stream(fopen($this->serialOutput, 'r'));
+        $this->serialOutputStream->setBlocking(false);
+
+        $this->serialOutputStream->onReadable(function (Stream $stream) {
+            echo $stream->read(8192);
         });
-        $this->session->onErrorMessage = (function ($message) {
-            Output::warning($message);
-        });
-
-        $this->session->input(sprintf("%s %s\n", PHP_BINARY, __DIR__ . '/Guide.php'));
-
-        repeat(function ($cancel) {
-            if (file_exists($this->guildOutput)) {
-                $cancel();
-
-                $this->guildOutputStream = new Stream(fopen($this->guildOutput, 'r+'));
-                $this->guildOutputStream->setBlocking(false);
-                $this->guildOutputStream->onReadable(function (Stream $stream) {
-                    echo $stream->read(8192);
-                });
-
-                $this->registerSignalHandler();
-            }
-        }, 0.1);
 
         run();
     }
 
     /**
+     * 终端会话窗口
      * @var Session
      */
     private Session $session;
 
     /**
+     * 注册信号处理器
      * @return void
      * @throws UnsupportedFeatureException
      */
@@ -152,6 +179,7 @@ class PDrive extends Command
     }
 
     /**
+     * 信号处理器
      * @return void
      */
     #[NoReturn] private function onQuitSignal(): void
@@ -159,8 +187,11 @@ class PDrive extends Command
         $this->session->inputSignal(SIGTERM);
         $this->session->close();
 
-        $this->guildOutputStream->close();
-        unlink($this->guildOutput);
+        $this->serialOutputStream->close();
+
+        unlink($this->serialOutput);
+        unlink($this->serialInput);
+        unlink($this->serialStdin);
 
         exit(0);
     }

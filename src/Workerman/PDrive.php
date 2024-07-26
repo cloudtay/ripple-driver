@@ -59,13 +59,21 @@ use function P\run;
 use function posix_getpid;
 use function str_contains;
 
-class Workerman implements EventInterface
+class PDrive implements EventInterface
 {
     /**
      * @var array
      */
-    protected array $_timer      = array();
-    protected array $_fd2ids     = array();
+    protected array $_timer = array();
+
+    /**
+     * @var array
+     */
+    protected array $_fd2ids = array();
+
+    /**
+     * @var array
+     */
     protected array $_signal2ids = array();
 
     /**
@@ -222,7 +230,6 @@ class Workerman implements EventInterface
         /**
          * @deprecated 兼容__destruct
          */
-        // \P\tick();
     }
 
     /**

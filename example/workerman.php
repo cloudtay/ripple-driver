@@ -36,7 +36,7 @@ include_once __DIR__ . '/../vendor/autoload.php';
 
 use GuzzleHttp\Promise\Promise;
 use Psc\Core\Output;
-use Psc\Drive\Workerman\Workerman;
+use Psc\Drive\Workerman\PDrive;
 use Workerman\Timer;
 use Workerman\Worker;
 
@@ -59,8 +59,8 @@ $worker->onWorkerStart = function () {
 };
 
 $worker->onMessage = function ($connection, $data) {
-    //方式1
-    async(function () use ($connection) {
+    //    //方式1
+    async(function ($r) use ($connection) {
         \P\sleep(3);
 
         $fileContent = await(
@@ -72,6 +72,8 @@ $worker->onMessage = function ($connection, $data) {
 
         $hash = \hash('sha256', $fileContent);
         $connection->send("[await] File content hash: {$hash}" . \PHP_EOL);
+
+        $r();
     });
 
     //使用原生guzzle实现异步请求
@@ -86,5 +88,5 @@ $worker->onMessage = function ($connection, $data) {
     $connection->send("say {$data}");
 };
 
-Worker::$eventLoopClass = Workerman::class;
+Worker::$eventLoopClass = PDrive::class;
 Worker::runAll();
