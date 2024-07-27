@@ -34,10 +34,13 @@
  */
 
 use Illuminate\Contracts\Foundation\Application;
+use JetBrains\PhpStorm\NoReturn;
 use P\IO;
 use P\Net;
 use P\System;
 use Psc\Core\Stream\Stream;
+use Psc\Drive\Stream\Command;
+use Psc\Drive\Stream\Frame;
 use Psc\Drive\Utils\Console;
 use Psc\Library\Net\Http\Server\HttpServer;
 use Psc\Library\Net\Http\Server\Request;
@@ -49,13 +52,28 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 use function P\run;
 
+$appPath = \getenv('P_RIPPLE_APP_PATH');
+$listen  = \getenv('P_RIPPLE_LISTEN');
+$threads = \getenv('P_RIPPLE_THREADS');
+
+\error_reporting(\E_ALL & ~\E_WARNING);
+\cli_set_process_title('Laravel-guard');
+\file_put_contents(__DIR__ . '/Guide.php.pid', \posix_getpid());
+\posix_setsid();
+
+include_once $appPath . '/vendor/autoload.php';
+
 /**
  * 该文件为Laravel的启动引导文件,同时作为服务运行时的主程序,
  * 储存和维护子进程信息,并与客户端(控制端)通信
  * 引导文件运行于真空中,所有的输出又sh转发到stdin管道文件
  * 与控制端通信通过r+w双管道交互指令
  */
-$guide = new class () {
+$guide = new class (
+    $appPath,
+    $listen,
+    $threads,
+) {
     /**
      *
      */
@@ -65,21 +83,6 @@ $guide = new class () {
      * @var HttpServer
      */
     private HttpServer $server;
-
-    /**
-     * @var string
-     */
-    private string $appPath;
-
-    /**
-     * @var string
-     */
-    private string $listen;
-
-    /**
-     * @var string
-     */
-    private string $threads;
 
     /**
      * @var Runtime[]
@@ -121,30 +124,44 @@ $guide = new class () {
     private Task $task;
 
     /**
-     *
+     * @var Frame
      */
-    public function __construct()
-    {
-        \error_reporting(\E_ALL & ~\E_WARNING);
-        \cli_set_process_title('Laravel-PD-guard');
-        \posix_setsid();
+    private Frame $frame;
 
+    /**
+     * @param string $appPath
+     * @param string $listen
+     * @param string $threads
+     */
+    public function __construct(
+        private readonly string $appPath,
+        private readonly string $listen,
+        private readonly string $threads,
+    ) {
         $this->serialOutputStream = new Stream(\fopen($this->serialOutput, 'w+'));
-        $this->serialInputStream  = new Stream(\fopen($this->serialInput, 'r'));
+        $this->serialInputStream  = new Stream(\fopen($this->serialInput, 'r+'));
 
         $this->serialOutputStream->setBlocking(false);
         $this->serialInputStream->setBlocking(false);
 
-        $this->appPath = \getenv('P_RIPPLE_APP_PATH');
-        $this->listen  = \getenv('P_RIPPLE_LISTEN');
-        $this->threads = \getenv('P_RIPPLE_THREADS');
+        $this->frame = new Frame();
 
-        include_once $this->appPath . '/vendor/autoload.php';
+        /**
+         * 控制台指令监听
+         */
+        $this->serialInputStream->onReadable(function () {
+            foreach ($this->frame->decodeStream($this->serialInputStream->read(1024)) as $content) {
+                $this->onCommand(\unserialize($content));
+            }
+        });
 
+        /**
+         * Http服务监听
+         */
         $context      = \stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->server = Net::Http()->server($this->listen, $context);
         $this->task   = System::Process()->task(function (HttpServer $server) {
-            \cli_set_process_title('Laravel-PD-thread');
+            \cli_set_process_title('Laravel-worker');
 
             /**
              * @var Application $application
@@ -180,7 +197,7 @@ $guide = new class () {
 
                 if ($symfonyResponse instanceof BinaryFileResponse) {
                     $response->setContent(
-                        \fopen($symfonyResponse->getFile()->getPathname(), 'r'),
+                        \fopen($symfonyResponse->getFile()->getPathname(), 'r+'),
                     );
                 } else {
                     $response->setContent(
@@ -196,6 +213,39 @@ $guide = new class () {
     }
 
     /**
+     * @param Command $command
+     * @return void
+     */
+    private function onCommand(Command $command): void
+    {
+        switch ($command->name) {
+            case 'status':
+                $command->setResult($this->renderState());
+                $this->serialOutputStream->write($this->frame->encodeFrame($command->__toString()));
+                break;
+            case 'stop':
+                foreach ($this->runtimes as $runtime) {
+                    $runtime->stop();
+                }
+                $command->setResult(
+                    'services stopped.' . \PHP_EOL
+                );
+
+                $this->serialOutputStream->write($this->frame->encodeFrame($command->__toString()));
+
+                $this->serialOutputStream->close();
+                $this->serialInputStream->close();
+
+                \unlink(__DIR__ . '/Guide.php.pid');
+
+                exit(0);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
      * @return void
      */
     private function addThread(): void
@@ -207,8 +257,6 @@ $guide = new class () {
             unset($this->runtimes[\spl_object_hash($runtime)]);
             $this->addThread();
         });
-
-        $this->flushState();
     }
 
     /**
@@ -228,15 +276,15 @@ $guide = new class () {
     {
         $monitor           = IO::File()->watch($this->appPath, 'php');
         $monitor->onTouch  = function (string $file) {
-            $this->pushMessage("file touched: {$file}");
+            $this->recordLog("file touched: {$file}");
             $this->reload();
         };
         $monitor->onModify = function (string $file) {
-            $this->pushMessage("file modified: {$file}");
+            $this->recordLog("file modified: {$file}");
             $this->reload();
         };
         $monitor->onRemove = function (string $file) {
-            $this->pushMessage("file removed: {$file}");
+            $this->recordLog("file removed: {$file}");
             $this->reload();
         };
     }
@@ -245,7 +293,7 @@ $guide = new class () {
      * @param string $message
      * @return void
      */
-    private function pushMessage(string $message): void
+    private function recordLog(string $message): void
     {
         $this->logs[] = $message;
         if (\count($this->logs) > 1) {
@@ -254,32 +302,34 @@ $guide = new class () {
     }
 
     /**
-     * @return void
+     * @return string
      */
-    private function flushState(): void
+    private function renderState(): string
     {
-        $this->serialOutputStream->write("\033c");
+        $content    = '';
         $processIds = [];
         foreach ($this->runtimes as $runtime) {
             $processIds[] = $runtime->getProcessId();
         }
-        $this->serialOutputStream->write("\033[1;34mPRipple\033[0m \033[1;32mLaunched\033[0m\n");
-        $this->serialOutputStream->write("\n");
-        $this->serialOutputStream->write($this->formatRow(['Compile'], 'info'));
-        $this->serialOutputStream->write($this->formatRow(['PATH', $this->appPath], 'info'));
-        $this->serialOutputStream->write($this->formatRow(['Listen', $this->listen], 'info'));
-        $this->serialOutputStream->write($this->formatRow(["Threads", $this->threads], 'info'));
-        $this->serialOutputStream->write("\n");
-        $this->serialOutputStream->write($this->formatRow(["Master"], 'thread'));
+        $content .= ("\033[1;34mPRipple\033[0m \033[1;32mLaunched\033[0m\n");
+        $content .= ("\n");
+        $content .= ($this->formatRow(['Compile'], 'info'));
+        $content .= ($this->formatRow(['PATH', $this->appPath], 'info'));
+        $content .= ($this->formatRow(['Listen', $this->listen], 'info'));
+        $content .= ($this->formatRow(["Threads", $this->threads], 'info'));
+        $content .= ("\n");
+        $content .= ($this->formatRow(["Master"], 'thread'));
 
         foreach ($processIds as $pid) {
-            $this->serialOutputStream->write($this->formatRow(["├─ {$pid} Thread", 'Running'], 'thread'));
+            $content .= ($this->formatRow(["├─ {$pid} Thread", 'Running'], 'thread'));
         }
 
-        $this->serialOutputStream->write("\n");
+        $content .= ("\n");
         foreach ($this->logs as $message) {
-            $this->serialOutputStream->write($this->formatList($message));
+            $content .= ($this->formatList($message));
         }
+
+        return $content;
     }
 
     /**
@@ -294,6 +344,23 @@ $guide = new class () {
         $this->monitor();
 
         run();
+    }
+
+    /**
+     *
+     */
+    #[NoReturn] public function __destruct()
+    {
+        foreach ($this->runtimes as $runtime) {
+            $runtime->stop();
+        }
+
+        $this->serialOutputStream->close();
+        $this->serialInputStream->close();
+
+        \unlink(__DIR__ . '/Guide.php.pid');
+
+        exit(0);
     }
 };
 

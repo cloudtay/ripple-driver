@@ -44,7 +44,8 @@ class Service extends ThinkPHPService
     public function register(): void
     {
         $this->commands([
-            'p:run' => PDrive::class
+            'p:run'    => PDrive::class,
+            'p:server' => PDrive::class
         ]);
     }
 }

@@ -34,18 +34,43 @@
 
 namespace Psc\Drive\Laravel;
 
-use Illuminate\Support\ServiceProvider;
+use Illuminate\Console\Command;
 
-class Provider extends ServiceProvider
+/**
+ * 驱动使用proc_open指令运行Laravel服务并嫁接sh输出至serialStdin中,
+ * 与服务实体的通讯采用r+w双线管道模式传呼指令,该类只负责启动|通讯服务,
+ * 不作为信息的载体
+ */
+class PDriveLast extends Command
 {
     /**
-     * Register any application services.
+     * The name and signature of the console command.
      *
-     * @return void
+     * @var string
      */
-    public function register(): void
+    protected $signature = 'p:run
+    {action=start : The action to perform}
+    {--s|listen=http://127.0.0.1:8008 : The address to listen on,default http://127.0.0.1:8008}
+    {--t|threads=4 : The number of threads to use,default 4}
+    {--d|daemon : Run the service in the background}
+    ';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'This command will be abandoned, please use the p:server command instead.';
+
+    public function handle(): void
     {
-        $this->commands([PDrive::class]);
-        $this->commands([PDriveLast::class]);
+        $this->warn('This command will be abandoned, please use the p:server command instead.');
+
+        $this->call('p:server', [
+            'action'    => $this->argument('action'),
+            '--listen'  => $this->option('listen'),
+            '--threads' => $this->option('threads'),
+            '--daemon'  => $this->option('daemon'),
+        ]);
     }
 }

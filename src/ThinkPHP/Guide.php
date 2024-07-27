@@ -33,9 +33,14 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
+use JetBrains\PhpStorm\NoReturn;
 use P\IO;
 use P\Net;
 use P\System;
+use Psc\Core\Stream\Stream;
+use Psc\Drive\Stream\Command;
+use Psc\Drive\Stream\Frame;
+use Psc\Drive\Utils\Console;
 use Psc\Library\Net\Http\Server\HttpServer;
 use Psc\Library\Net\Http\Server\Request;
 use Psc\Library\Net\Http\Server\Response;
@@ -46,25 +51,117 @@ use think\response\File;
 
 use function P\run;
 
-$guide = $class = new class () {
+$appPath = \getenv('P_RIPPLE_APP_PATH');
+$listen  = \getenv('P_RIPPLE_LISTEN');
+$threads = \getenv('P_RIPPLE_THREADS');
+
+\error_reporting(\E_ALL & ~\E_WARNING);
+\cli_set_process_title('ThinkPHP-guard');
+\file_put_contents(__DIR__ . '/Guide.php.pid', \posix_getpid());
+\posix_setsid();
+
+include_once $appPath . '/vendor/autoload.php';
+
+/**
+ * 该文件为ThinkPHP的启动引导文件,同时作为服务运行时的主程序,
+ * 储存和维护子进程信息,并与客户端(控制端)通信
+ * 引导文件运行于真空中,所有的输出又sh转发到stdin管道文件
+ * 与控制端通信通过r+w双管道交互指令
+ */
+$guide = new class (
+    $appPath,
+    $listen,
+    $threads,
+) {
+    /**
+     *
+     */
+    use Console;
+
+    /**
+     * @var HttpServer
+     */
     private HttpServer $server;
-    private string     $appPath;
-    private string     $listen;
-    private string     $threads;
 
-    public function run(): void
-    {
-        \error_reporting(\E_ALL & ~\E_WARNING);
-        $this->appPath = \getenv('P_RIPPLE_APP_PATH');
-        $this->listen  = \getenv('P_RIPPLE_LISTEN');
-        $this->threads = \getenv('P_RIPPLE_THREADS');
+    /**
+     * @var Runtime[]
+     */
+    private array $runtimes = [];
 
-        include_once $this->appPath . '/vendor/autoload.php';
+    /**
+     * @var array
+     */
+    private array $logs = [];
 
+    /**
+     * 服务输出流文件
+     * @var string
+     */
+    private string $serialOutput = __DIR__ . '/Guide.php.output';
+
+    /**
+     * 服务输入流文件
+     * @var string
+     */
+    private string $serialInput = __DIR__ . '/Guide.php.input';
+
+    /**
+     * 服务输出流
+     * @var Stream
+     */
+    private Stream $serialOutputStream;
+
+    /**
+     * 服务输入流
+     * @var Stream
+     */
+    private Stream $serialInputStream;
+
+    /**
+     * @var Task
+     */
+    private Task $task;
+
+    /**
+     * @var Frame
+     */
+    private Frame $frame;
+
+    /**
+     * @param string $appPath
+     * @param string $listen
+     * @param string $threads
+     */
+    public function __construct(
+        private readonly string $appPath,
+        private readonly string $listen,
+        private readonly string $threads,
+    ) {
+        $this->serialOutputStream = new Stream(\fopen($this->serialOutput, 'w+'));
+        $this->serialInputStream  = new Stream(\fopen($this->serialInput, 'r+'));
+
+        $this->serialOutputStream->setBlocking(false);
+        $this->serialInputStream->setBlocking(false);
+
+        $this->frame = new Frame();
+
+        /**
+         * 控制台指令监听
+         */
+        $this->serialInputStream->onReadable(function () {
+            foreach ($this->frame->decodeStream($this->serialInputStream->read(1024)) as $content) {
+                $this->onCommand(\unserialize($content));
+            }
+        });
+
+        /**
+         * Http服务监听
+         */
         $context      = \stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->server = Net::Http()->server($this->listen, $context);
+        $this->task   = System::Process()->task(function (HttpServer $server) {
+            \cli_set_process_title('ThinkPHP-worker');
 
-        $task = System::Process()->task(function (HttpServer $server) {
             $app  = new App();
             $http = $app->http;
 
@@ -88,7 +185,7 @@ $guide = $class = new class () {
 
                 if ($thinkResponse instanceof File) {
                     $response->setContent(
-                        IO::File()->open($thinkResponse->getData(), 'r')
+                        IO::File()->open($thinkResponse->getData(), 'r+')
                     );
                 } else {
                     $response->setContent(
@@ -101,29 +198,53 @@ $guide = $class = new class () {
 
             $server->listen();
         });
-
-        for ($i = 0; $i < $this->threads; $i++) {
-            $this->guard($task);
-        }
-
-        $this->monitor();
-        run();
     }
 
     /**
-     * @param Task $task
+     * @param Command $command
      * @return void
      */
-    private function guard(Task $task): void
+    private function onCommand(Command $command): void
     {
-        $runtime                                    = $task->run($this->server);
-        $this->runtimes[\spl_object_hash($runtime)] = $runtime;
-        $runtime->finally(function () use ($task, $runtime) {
-            unset($this->runtimes[\spl_object_hash($runtime)]);
+        switch ($command->name) {
+            case 'status':
+                $command->setResult($this->renderState());
+                $this->serialOutputStream->write($this->frame->encodeFrame($command->__toString()));
+                break;
+            case 'stop':
+                foreach ($this->runtimes as $runtime) {
+                    $runtime->stop();
+                }
+                $command->setResult(
+                    'services stopped.' . \PHP_EOL
+                );
 
-            $this->guard($task);
+                $this->serialOutputStream->write($this->frame->encodeFrame($command->__toString()));
+
+                $this->serialOutputStream->close();
+                $this->serialInputStream->close();
+
+                \unlink(__DIR__ . '/Guide.php.pid');
+
+                exit(0);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * @return void
+     */
+    private function addThread(): void
+    {
+        $runtime                                    = $this->task->run($this->server);
+        $this->runtimes[\spl_object_hash($runtime)] = $runtime;
+
+        $runtime->finally(function () use ($runtime) {
+            unset($this->runtimes[\spl_object_hash($runtime)]);
+            $this->addThread();
         });
-        $this->printState();
     }
 
     /**
@@ -131,7 +252,7 @@ $guide = $class = new class () {
      */
     private function reload(): void
     {
-        while ($runtime = \array_shift($this->runtimes)) {
+        foreach ($this->runtimes as $runtime) {
             $runtime->stop();
         }
     }
@@ -141,108 +262,94 @@ $guide = $class = new class () {
      */
     private function monitor(): void
     {
-        $monitor          = IO::File()->watch($this->appPath, 'php');
-        $monitor->onTouch = function (string $file) {
-            $this->pushMessage("File touched: {$file}");
+        $monitor           = IO::File()->watch($this->appPath, 'php');
+        $monitor->onTouch  = function (string $file) {
+            $this->recordLog("file touched: {$file}");
             $this->reload();
         };
-
         $monitor->onModify = function (string $file) {
-            $this->pushMessage("File modified: {$file}");
+            $this->recordLog("file modified: {$file}");
             $this->reload();
         };
-
         $monitor->onRemove = function (string $file) {
-            $this->pushMessage("File removed: {$file}");
+            $this->recordLog("file removed: {$file}");
             $this->reload();
         };
     }
-
-    /**
-     * @var Runtime[]
-     */
-    private array $runtimes = [];
-
-    /**
-     * @var array
-     */
-    private array $lastMessages = [];
 
     /**
      * @param string $message
      * @return void
      */
-    private function pushMessage(string $message): void
+    private function recordLog(string $message): void
     {
-        $this->lastMessages[] = $message;
-        if (\count($this->lastMessages) > 1) {
-            \array_shift($this->lastMessages);
+        $this->logs[] = $message;
+        if (\count($this->logs) > 1) {
+            \array_shift($this->logs);
         }
+    }
+
+    /**
+     * @return string
+     */
+    private function renderState(): string
+    {
+        $content    = '';
+        $processIds = [];
+        foreach ($this->runtimes as $runtime) {
+            $processIds[] = $runtime->getProcessId();
+        }
+        $content .= ("\033[1;34mPRipple\033[0m \033[1;32mLaunched\033[0m\n");
+        $content .= ("\n");
+        $content .= ($this->formatRow(['Compile'], 'info'));
+        $content .= ($this->formatRow(['PATH', $this->appPath], 'info'));
+        $content .= ($this->formatRow(['Listen', $this->listen], 'info'));
+        $content .= ($this->formatRow(["Threads", $this->threads], 'info'));
+        $content .= ("\n");
+        $content .= ($this->formatRow(["Master"], 'thread'));
+
+        foreach ($processIds as $pid) {
+            $content .= ($this->formatRow(["├─ {$pid} Thread", 'Running'], 'thread'));
+        }
+
+        $content .= ("\n");
+        foreach ($this->logs as $message) {
+            $content .= ($this->formatList($message));
+        }
+
+        return $content;
     }
 
     /**
      * @return void
      */
-    private function printState(): void
+    public function launch(): void
     {
-        echo "\033c";
-        $pid  = \posix_getpid();
-        $pids = [];
+        for ($i = 0; $i < $this->threads; $i++) {
+            $this->addThread();
+        }
+
+        $this->monitor();
+
+        run();
+    }
+
+    /**
+     *
+     */
+    #[NoReturn] public function __destruct()
+    {
         foreach ($this->runtimes as $runtime) {
-            $pids[] = $runtime->getProcessId();
+            $runtime->stop();
         }
-        echo "\033[1;34mPRipple\033[0m \033[1;32mLaunched\033[0m\n";
-        echo "\n";
-        echo $this->formatRow(['App Path', $this->appPath], 'info');
-        echo $this->formatRow(['Listen', $this->listen], 'info');
-        echo $this->formatRow(["Threads", $this->threads], 'info');
-        echo "\n";
-        echo $this->formatRow(["Master"], 'thread');
-        foreach ($pids as $pid) {
-            echo $this->formatRow(["├─ {$pid} Thread", 'Running'], 'thread');
-        }
-        echo "\n";
-        foreach ($this->lastMessages as $message) {
-            echo $this->formatList($message);
-        }
-    }
 
-    /**
-     * @param array  $row
-     * @param string $type
-     * @return string
-     */
-    private function formatRow(array $row, string $type = ''): string
-    {
-        $output    = '';
-        $colorCode = $this->getColorCode($type);
-        foreach ($row as $col) {
-            $output .= \str_pad("{$colorCode}{$col}\033[0m", 40);
-        }
-        return $output . "\n";
-    }
+        $this->serialOutputStream->close();
+        $this->serialInputStream->close();
 
-    /**
-     * @param string $item
-     * @return string
-     */
-    private function formatList(string $item): string
-    {
-        return "  - $item\n";
-    }
+        \unlink(__DIR__ . '/Guide.php.pid');
 
-    /**
-     * @param string $type
-     * @return string
-     */
-    private function getColorCode(string $type): string
-    {
-        return match ($type) {
-            'info'   => "\033[1;36m",
-            'thread' => "\033[1;33m",
-            default  => "",
-        };
+        exit(0);
     }
 };
 
-$guide->run();
+$guide->launch();

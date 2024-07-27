@@ -37,26 +37,29 @@ namespace Psc\Drive\Laravel;
 use Illuminate\Console\Command;
 use JetBrains\PhpStorm\NoReturn;
 use P\System;
+use Psc\Core\Coroutine\Promise;
 use Psc\Core\Output;
 use Psc\Core\Stream\Stream;
-use Psc\Library\System\Proc\Session;
-use Revolt\EventLoop\UnsupportedFeatureException;
+use Psc\Drive\Stream\Frame;
+use Psc\Std\Stream\Exception\ConnectionException;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 
 use function base_path;
 use function cli_set_process_title;
 use function file_exists;
 use function fopen;
+use function P\async;
+use function P\await;
 use function P\onSignal;
 use function P\run;
 use function posix_mkfifo;
 use function putenv;
 use function sprintf;
-use function unlink;
+use function unserialize;
 
 use const PHP_BINARY;
 use const SIGINT;
-use const SIGQUIT;
-use const SIGTERM;
 
 /**
  * 驱动使用proc_open指令运行Laravel服务并嫁接sh输出至serialStdin中,
@@ -70,9 +73,11 @@ class PDrive extends Command
      *
      * @var string
      */
-    protected $signature = 'p:run
-    {--s|listen=http://127.0.0.1:8008}
-    {--t|threads=4}
+    protected $signature = 'p:server
+    {action=start : The action to perform ,Support start|stop|status}
+    {--s|listen=http://127.0.0.1:8008 : The address to listen on,default http://127.0.0.1:8008}
+    {--t|threads=4 : The number of threads to use,default 4}
+    {--d|daemon : Run the service in the background}
     ';
 
     /**
@@ -83,19 +88,13 @@ class PDrive extends Command
     protected $description = 'start the P-Drive service';
 
     /**
-     * 服务主动输出流
-     * @return void
-     */
-    private Stream $serialOutputStream;
-
-    /**
      * 服务输出流文件
      * @var string
      */
     private string $serialOutput = __DIR__ . '/Guide.php.output';
 
     /**
-     * 服务输入流文件
+     * 终端输入流文件
      * @var string
      */
     private string $serialStdin = __DIR__ . '/Guide.php.stdin';
@@ -107,11 +106,115 @@ class PDrive extends Command
     private string $serialInput = __DIR__ . '/Guide.php.input';
 
     /**
+     * 服务输出流文件
+     * @var Stream
+     */
+    private Stream $serialOutputStream;
+
+    /**
+     * 终端输入流文件
+     * @var Stream
+     */
+    private Stream $serialStdinStream;
+
+    /**
+     * 服务输入流文件
+     * @var Stream
+     */
+    private Stream $serialInputStream;
+
+    /**
+     * @var Frame
+     */
+    private Frame $frame;
+
+    /**
+     * @param InputInterface  $input
+     * @param OutputInterface $output
+     * @return void
+     */
+    public function initialize(InputInterface $input, OutputInterface $output): void
+    {
+        parent::initialize($input, $output);
+
+        if (!file_exists($this->serialInput)) {
+            posix_mkfifo($this->serialInput, 0600);
+        }
+
+        if (!file_exists($this->serialOutput)) {
+            posix_mkfifo($this->serialOutput, 0600);
+        }
+
+        if (!file_exists($this->serialStdin)) {
+            posix_mkfifo($this->serialStdin, 0600);
+        }
+
+        $this->serialOutputStream = new Stream(fopen($this->serialOutput, 'r+'));
+        $this->serialStdinStream  = new Stream(fopen($this->serialStdin, 'r+'));
+        $this->serialInputStream  = new Stream(fopen($this->serialInput, 'w+'));
+        $this->serialOutputStream->setBlocking(false);
+        $this->serialStdinStream->setBlocking(false);
+
+        $this->frame = new Frame();
+
+        /**
+         *
+         */
+        $this->serialOutputStream->onReadable(function () {
+            $content = $this->serialOutputStream->read(8192);
+            foreach ($this->frame->decodeStream($content) as $command) {
+                $this->onCommand(unserialize($command));
+            }
+        });
+    }
+
+    /**
      * 运行服务
      * @return void
-     * @throws UnsupportedFeatureException
+     * @throws ConnectionException
      */
     public function handle(): void
+    {
+        $action = $this->argument('action');
+
+        switch ($action) {
+            case 'start':
+                $this->serialStdinStream->onReadable(function () {
+                    echo $this->serialStdinStream->read(8192);
+                });
+
+                $this->start();
+                break;
+
+            case 'stop':
+                if (!file_exists(__DIR__ . '/Guide.php.pid')) {
+                    Output::warning('The service is not running.');
+                    exit(0);
+                }
+
+                $this->inputCommand('stop')->then(function (string $result) {
+                    echo $result;
+                    exit(0);
+                });
+                run();
+
+            // no break
+            case 'status':
+                $this->listen();
+                run();
+
+            // no break
+            default:
+                Output::warning('Invalid action.');
+                break;
+        }
+    }
+
+    /**
+     * @return void
+     * @throws ConnectionException
+     */
+    private function start(): void
     {
         cli_set_process_title('Laravel-PD');
         $appPath = base_path();
@@ -123,20 +226,11 @@ class PDrive extends Command
         putenv("P_RIPPLE_LISTEN=$listen");
         putenv("P_RIPPLE_THREADS=$threads");
 
-        if (file_exists($this->serialStdin)) {
+        if (file_exists(__DIR__ . '/Guide.php.pid')) {
             Output::warning('The service is already running.');
             Output::warning("file exists: {$this->serialStdin}");
             exit(0);
         }
-
-        if (!file_exists($this->serialInput)) {
-            posix_mkfifo($this->serialInput, 0600);
-        }
-
-        if (!file_exists($this->serialOutput)) {
-            posix_mkfifo($this->serialOutput, 0600);
-        }
-
 
         $command = sprintf(
             "%s %s > %s",
@@ -145,54 +239,104 @@ class PDrive extends Command
             $this->serialStdin
         );
 
-        $this->session = System::Proc()->open();
-        $this->session->input($command);
+        $session = System::Proc()->open();
+        $session->input($command);
 
-        $this->registerSignalHandler();
+        $this->inputCommand('status')->then(function (string $result) {
+            echo $result;
 
-        $this->serialOutputStream = new Stream(fopen($this->serialOutput, 'r'));
-        $this->serialOutputStream->setBlocking(false);
+            if ($this->option('daemon')) {
+                exit(0);
+            } else {
+                onSignal(SIGINT, function () {
+                    $this->inputCommand('stop')->then(function (string $result) {
+                        echo $result;
+                        exit(0);
+                    });
+                });
 
-        $this->serialOutputStream->onReadable(function (Stream $stream) {
-            echo $stream->read(8192);
+                $this->listen();
+            }
         });
 
         run();
     }
 
     /**
-     * 终端会话窗口
-     * @var Session
-     */
-    private Session $session;
-
-    /**
-     * 注册信号处理器
      * @return void
-     * @throws UnsupportedFeatureException
      */
-    private function registerSignalHandler(): void
+    private function listen(): void
     {
-        onSignal(SIGINT, fn () => $this->onQuitSignal());
-        onSignal(SIGTERM, fn () => $this->onQuitSignal());
-        onSignal(SIGQUIT, fn () => $this->onQuitSignal());
+        $this->serialStdinStream->onReadable(function () {
+            echo $this->serialStdinStream->read(8192);
+        });
+
+        if (!file_exists(__DIR__ . '/Guide.php.pid')) {
+            Output::warning('The service is not running.');
+            exit(0);
+        }
+
+        async(function () {
+            while (1) {
+                $result = await($this->inputCommand('status'));
+                echo "\033c";
+                echo $result;
+                \P\sleep(1);
+            }
+        });
     }
 
     /**
-     * 信号处理器
+     * @var array
+     */
+    private array $queue = [];
+
+    /**
+     * @param string $name
+     * @param array  $arguments
+     * @param array  $options
+     * @return Promise
+     * @throws ConnectionException
+     */
+    private function inputCommand(
+        string $name,
+        array  $arguments = [],
+        array  $options = []
+    ): Promise
+    {
+        $command = new \Psc\Drive\Stream\Command(
+            $name,
+            $arguments,
+            $options
+        );
+
+        $this->serialInputStream->write($this->frame->encodeFrame($command->__toString()));
+
+        return \P\promise(function ($r, $d) use ($command) {
+            $this->queue[$command->id] = [
+                'resolve' => $r,
+                'reject'  => $d,
+            ];
+        });
+    }
+
+    /**
+     * @param \Psc\Drive\Stream\Command $command
      * @return void
      */
-    #[NoReturn] private function onQuitSignal(): void
+    private function onCommand(\Psc\Drive\Stream\Command $command): void
     {
-        $this->session->inputSignal(SIGTERM);
-        $this->session->close();
+        if (isset($this->queue[$command->id])) {
+            $this->queue[$command->id]['resolve']($command->result);
 
-        $this->serialOutputStream->close();
+            unset($this->queue[$command->id]);
+        }
 
-        unlink($this->serialOutput);
-        unlink($this->serialInput);
-        unlink($this->serialStdin);
+        // 忽略无效指令响应
+    }
 
+    #[NoReturn] public function __destruct()
+    {
         exit(0);
     }
 }
