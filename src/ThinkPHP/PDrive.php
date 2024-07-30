@@ -45,7 +45,6 @@ use think\console\Input;
 use think\console\input\Option;
 use think\console\Output;
 
-use function base_path;
 use function cli_set_process_title;
 use function file_exists;
 use function fopen;

@@ -198,12 +198,12 @@ class PDrive extends Command
                 });
                 run();
 
-            // no break
+                // no break
             case 'status':
                 $this->listen();
                 run();
 
-            // no break
+                // no break
             default:
                 Output::warning('Invalid action.');
                 break;
@@ -302,8 +302,7 @@ class PDrive extends Command
         string $name,
         array  $arguments = [],
         array  $options = []
-    ): Promise
-    {
+    ): Promise {
         $command = new \Psc\Drive\Stream\Command(
             $name,
             $arguments,

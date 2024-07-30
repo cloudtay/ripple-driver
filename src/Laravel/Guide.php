@@ -174,7 +174,7 @@ $guide = new class (
              * @return void
              * @throws ConnectionException
              */
-            $server->onRequest = function (
+            $server->onRequest(function (
                 Request  $request,
                 Response $response
             ) use ($application) {
@@ -207,7 +207,7 @@ $guide = new class (
                 }
 
                 $response->respond();
-            };
+            });
             $server->listen();
         });
     }
