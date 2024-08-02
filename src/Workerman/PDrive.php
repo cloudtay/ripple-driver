@@ -52,6 +52,7 @@ use function get_resource_id;
 use function is_array;
 use function is_string;
 use function P\cancel;
+use function P\cancelAll;
 use function P\delay;
 use function P\onSignal;
 use function P\repeat;
@@ -206,6 +207,7 @@ class PDrive implements EventInterface
         } elseif (self::$baseProcessId !== posix_getpid()) {
             self::$baseProcessId = posix_getpid();
             try {
+                cancelAll();
                 System::Process()->noticeFork();
             } catch (UnsupportedFeatureException $e) {
                 Output::error($e->getMessage());
