@@ -32,52 +32,22 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+/**
+ * webman/config/ 配置目录的预申明
+ * 20240807补充 config/coroutine.php
+ */
 
-use Illuminate\Contracts\Container\BindingResolutionException;
-use Illuminate\Contracts\Http\Kernel;
-use Illuminate\Database\Connection;
-use Illuminate\Support\Env;
-use Illuminate\Support\ServiceProvider;
-use Psc\Drive\Laravel\Coroutine\Database\Factory;
-use Psc\Drive\Laravel\Middleware\IsolationMiddleware;
+use Psc\Drive\Workerman\PDrive;
 
-use function in_array;
+return [
+    // server.php 配置文件
+    'server'    => [
+        'event_loop' => PDrive::class,
+    ],
 
-class Provider extends ServiceProvider
-{
-    /**
-     * Register any application services.
-     *
-     * @return void
-     * @throws BindingResolutionException
-     */
-    public function register(): void
-    {
-        $this->commands([PDrive::class]);
-        $this->commands([PDriveLast::class]);
-
-        // 开始注册服务
-        $kernel = $this->app->make(Kernel::class);
-        $this->app->singleton('db.factory', fn () => new Factory($this->app));
-        Connection::resolverFor('mysql-amp', function ($connection, $database, $prefix, $config) {
-            return new Coroutine\Database\MySQL\Connection($connection, $database, $prefix, $config);
-        });
-
-        // 配置项: 安全隔离模式
-        $P_ISOLATION = Env::get('P_ISOLATION');
-
-        if ($this->isTrue($P_ISOLATION)) {
-            $kernel->prependMiddleware(IsolationMiddleware::class);
-        }
-    }
-
-    /**
-     * @param mixed $value
-     * @return bool
-     */
-    private function isTrue(mixed $value): bool
-    {
-        return in_array($value, [true, 'true', 1, '1', 'on'], true);
-    }
-}
+    // container.php 配置文件
+    'coroutine' => [
+        // 自动启用协程版database
+        'database' => 1
+    ],
+];

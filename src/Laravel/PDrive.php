@@ -38,10 +38,10 @@ use Illuminate\Console\Command;
 use JetBrains\PhpStorm\NoReturn;
 use P\System;
 use Psc\Core\Coroutine\Promise;
-use Psc\Core\Output;
 use Psc\Core\Stream\Stream;
-use Psc\Drive\Stream\Frame;
+use Psc\Drive\Library\Stream\Frame;
 use Psc\Std\Stream\Exception\ConnectionException;
+use Psc\Utils\Output;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -55,7 +55,6 @@ use function P\onSignal;
 use function P\run;
 use function posix_mkfifo;
 use function putenv;
-use function sprintf;
 use function unserialize;
 
 use const PHP_BINARY;
@@ -176,7 +175,6 @@ class PDrive extends Command
     public function handle(): void
     {
         $action = $this->argument('action');
-
         switch ($action) {
             case 'start':
                 $this->serialStdinStream->onReadable(function () {
@@ -222,9 +220,9 @@ class PDrive extends Command
         $listen  = $this->option('listen');
         $threads = $this->option('threads');
 
-        putenv("P_RIPPLE_APP_PATH=$appPath");
-        putenv("P_RIPPLE_LISTEN=$listen");
-        putenv("P_RIPPLE_THREADS=$threads");
+        putenv("P_PATH=$appPath");
+        putenv("P_LISTEN=$listen");
+        putenv("P_WORKER=$threads");
 
         if (file_exists(__DIR__ . '/Guide.php.pid')) {
             Output::warning('The service is already running.');
@@ -232,19 +230,10 @@ class PDrive extends Command
             exit(0);
         }
 
-        $command = sprintf(
-            "%s %s > %s",
-            PHP_BINARY,
-            __DIR__ . '/Guide.php',
-            $this->serialStdin
-        );
-
         $session = System::Proc()->open();
-        $session->input($command);
-
+        $session->input([PHP_BINARY, __DIR__ . '/Guide.php', '>', $this->serialStdin]);
         $this->inputCommand('status')->then(function (string $result) {
             echo $result;
-
             if ($this->option('daemon')) {
                 exit(0);
             } else {
@@ -254,11 +243,9 @@ class PDrive extends Command
                         exit(0);
                     });
                 });
-
                 $this->listen();
             }
         });
-
         run();
     }
 
@@ -303,7 +290,7 @@ class PDrive extends Command
         array  $arguments = [],
         array  $options = []
     ): Promise {
-        $command = new \Psc\Drive\Stream\Command(
+        $command = new \Psc\Drive\Library\Stream\Command(
             $name,
             $arguments,
             $options
@@ -320,14 +307,13 @@ class PDrive extends Command
     }
 
     /**
-     * @param \Psc\Drive\Stream\Command $command
+     * @param \Psc\Drive\Library\Stream\Command $command
      * @return void
      */
-    private function onCommand(\Psc\Drive\Stream\Command $command): void
+    private function onCommand(\Psc\Drive\Library\Stream\Command $command): void
     {
         if (isset($this->queue[$command->id])) {
             $this->queue[$command->id]['resolve']($command->result);
-
             unset($this->queue[$command->id]);
         }
 

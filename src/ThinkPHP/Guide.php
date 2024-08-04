@@ -37,15 +37,15 @@ use JetBrains\PhpStorm\NoReturn;
 use P\IO;
 use P\Net;
 use P\System;
+use Psc\Core\Http\Server\HttpServer;
+use Psc\Core\Http\Server\Request;
+use Psc\Core\Http\Server\Response;
+use Psc\Core\Process\Runtime;
+use Psc\Core\Process\Task;
 use Psc\Core\Stream\Stream;
-use Psc\Drive\Stream\Command;
-use Psc\Drive\Stream\Frame;
-use Psc\Drive\Utils\Console;
-use Psc\Library\Net\Http\Server\HttpServer;
-use Psc\Library\Net\Http\Server\Request;
-use Psc\Library\Net\Http\Server\Response;
-use Psc\Library\System\Process\Runtime;
-use Psc\Library\System\Process\Task;
+use Psc\Drive\Library\Console;
+use Psc\Drive\Library\Stream\Command;
+use Psc\Drive\Library\Stream\Frame;
 use think\App;
 use think\response\File;
 
@@ -78,19 +78,13 @@ $guide = new class (
      */
     use Console;
 
-    /**
-     * @var HttpServer
-     */
+    /*** @var HttpServer */
     private HttpServer $server;
 
-    /**
-     * @var Runtime[]
-     */
+    /*** @var Runtime[] */
     private array $runtimes = [];
 
-    /**
-     * @var array
-     */
+    /*** @var array */
     private array $logs = [];
 
     /**
@@ -117,14 +111,10 @@ $guide = new class (
      */
     private Stream $serialInputStream;
 
-    /**
-     * @var Task
-     */
+    /*** @var Task */
     private Task $task;
 
-    /**
-     * @var Frame
-     */
+    /*** @var Frame */
     private Frame $frame;
 
     /**
@@ -227,7 +217,6 @@ $guide = new class (
                 \unlink(__DIR__ . '/Guide.php.pid');
 
                 exit(0);
-                break;
             default:
                 break;
         }
@@ -330,7 +319,6 @@ $guide = new class (
         }
 
         $this->monitor();
-
         run();
     }
 
@@ -345,9 +333,7 @@ $guide = new class (
 
         $this->serialOutputStream->close();
         $this->serialInputStream->close();
-
         \unlink(__DIR__ . '/Guide.php.pid');
-
         exit(0);
     }
 };

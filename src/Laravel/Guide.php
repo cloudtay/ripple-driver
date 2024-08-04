@@ -38,26 +38,26 @@ use JetBrains\PhpStorm\NoReturn;
 use P\IO;
 use P\Net;
 use P\System;
+use Psc\Core\Http\Server\HttpServer;
+use Psc\Core\Http\Server\Request;
+use Psc\Core\Http\Server\Response;
+use Psc\Core\Process\Runtime;
+use Psc\Core\Process\Task;
 use Psc\Core\Stream\Stream;
-use Psc\Drive\Stream\Command;
-use Psc\Drive\Stream\Frame;
-use Psc\Drive\Utils\Console;
-use Psc\Library\Net\Http\Server\HttpServer;
-use Psc\Library\Net\Http\Server\Request;
-use Psc\Library\Net\Http\Server\Response;
-use Psc\Library\System\Process\Runtime;
-use Psc\Library\System\Process\Task;
+use Psc\Drive\Library\Console;
+use Psc\Drive\Library\Stream\Command;
+use Psc\Drive\Library\Stream\Frame;
 use Psc\Std\Stream\Exception\ConnectionException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 use function P\run;
 
-$appPath = \getenv('P_RIPPLE_APP_PATH');
-$listen  = \getenv('P_RIPPLE_LISTEN');
-$threads = \getenv('P_RIPPLE_THREADS');
+$appPath = \getenv('P_PATH');
+$listen  = \getenv('P_LISTEN');
+$threads = \getenv('P_WORKER');
 
 \error_reporting(\E_ALL & ~\E_WARNING);
-\cli_set_process_title('Laravel-guard');
+\cli_set_process_title('laravel-guard');
 \file_put_contents(__DIR__ . '/Guide.php.pid', \posix_getpid());
 \posix_setsid();
 
@@ -161,7 +161,7 @@ $guide = new class (
         $context      = \stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->server = Net::Http()->server($this->listen, $context);
         $this->task   = System::Process()->task(function (HttpServer $server) {
-            \cli_set_process_title('Laravel-worker');
+            \cli_set_process_title('laravel-worker');
 
             /**
              * @var Application $application
@@ -178,7 +178,6 @@ $guide = new class (
                 Request  $request,
                 Response $response
             ) use ($application) {
-
                 $laravelRequest = new \Illuminate\Http\Request(
                     $request->query->all(),
                     $request->request->all(),
@@ -190,7 +189,6 @@ $guide = new class (
                 );
 
                 $symfonyResponse = $application->handle($laravelRequest);
-
                 $response->setStatusCode($symfonyResponse->getStatusCode());
                 $response->setProtocolVersion($symfonyResponse->getProtocolVersion());
                 $response->headers->add($symfonyResponse->headers->all());
@@ -232,14 +230,11 @@ $guide = new class (
                 );
 
                 $this->serialOutputStream->write($this->frame->encodeFrame($command->__toString()));
-
                 $this->serialOutputStream->close();
                 $this->serialInputStream->close();
 
                 \unlink(__DIR__ . '/Guide.php.pid');
-
                 exit(0);
-                break;
             default:
                 break;
         }
@@ -321,7 +316,7 @@ $guide = new class (
         $content .= ($this->formatRow(["Master"], 'thread'));
 
         foreach ($processIds as $pid) {
-            $content .= ($this->formatRow(["├─ {$pid} Thread", 'Running'], 'thread'));
+            $content .= ($this->formatRow(["├─ {$pid} Worker", 'Running'], 'thread'));
         }
 
         $content .= ("\n");
@@ -342,7 +337,6 @@ $guide = new class (
         }
 
         $this->monitor();
-
         run();
     }
 
@@ -359,7 +353,6 @@ $guide = new class (
         $this->serialInputStream->close();
 
         \unlink(__DIR__ . '/Guide.php.pid');
-
         exit(0);
     }
 };

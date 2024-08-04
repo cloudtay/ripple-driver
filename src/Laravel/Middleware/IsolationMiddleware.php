@@ -32,52 +32,27 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+namespace Psc\Drive\Laravel\Middleware;
 
-use Illuminate\Contracts\Container\BindingResolutionException;
-use Illuminate\Contracts\Http\Kernel;
-use Illuminate\Database\Connection;
-use Illuminate\Support\Env;
-use Illuminate\Support\ServiceProvider;
-use Psc\Drive\Laravel\Coroutine\Database\Factory;
-use Psc\Drive\Laravel\Middleware\IsolationMiddleware;
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
 
-use function in_array;
+use function app;
 
-class Provider extends ServiceProvider
+class IsolationMiddleware
 {
     /**
-     * Register any application services.
-     *
-     * @return void
-     * @throws BindingResolutionException
+     * @param Request $request
+     * @param Closure $next
+     * @return mixed
      */
-    public function register(): void
+    public function handle(Request $request, Closure $next): mixed
     {
-        $this->commands([PDrive::class]);
-        $this->commands([PDriveLast::class]);
-
-        // 开始注册服务
-        $kernel = $this->app->make(Kernel::class);
-        $this->app->singleton('db.factory', fn () => new Factory($this->app));
-        Connection::resolverFor('mysql-amp', function ($connection, $database, $prefix, $config) {
-            return new Coroutine\Database\MySQL\Connection($connection, $database, $prefix, $config);
-        });
-
-        // 配置项: 安全隔离模式
-        $P_ISOLATION = Env::get('P_ISOLATION');
-
-        if ($this->isTrue($P_ISOLATION)) {
-            $kernel->prependMiddleware(IsolationMiddleware::class);
+        $route = $request->route();
+        if ($route instanceof Route) {
+            $route->controller = app($route->getControllerClass());
         }
-    }
-
-    /**
-     * @param mixed $value
-     * @return bool
-     */
-    private function isTrue(mixed $value): bool
-    {
-        return in_array($value, [true, 'true', 1, '1', 'on'], true);
+        return $next($request);
     }
 }

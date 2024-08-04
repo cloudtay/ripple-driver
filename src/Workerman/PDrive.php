@@ -36,8 +36,9 @@ namespace Psc\Drive\Workerman;
 
 use Closure;
 use P\System;
-use Psc\Core\Output;
 use Psc\Core\Stream\Stream;
+use Psc\Utils\Output;
+use Revolt\EventLoop;
 use Revolt\EventLoop\UnsupportedFeatureException;
 use Throwable;
 use Workerman\Events\EventInterface;
@@ -208,7 +209,7 @@ class PDrive implements EventInterface
             self::$baseProcessId = posix_getpid();
             try {
                 cancelAll();
-                System::Process()->noticeFork();
+                System::Process()->forked();
             } catch (UnsupportedFeatureException $e) {
                 Output::error($e->getMessage());
             }
@@ -229,9 +230,8 @@ class PDrive implements EventInterface
      */
     public function destroy(): void
     {
-        /**
-         * @deprecated 兼容__destruct
-         */
+        cancelAll();
+        EventLoop::getDriver()->stop();
     }
 
     /**

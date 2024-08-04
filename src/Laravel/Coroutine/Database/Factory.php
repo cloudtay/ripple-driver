@@ -32,52 +32,39 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+namespace Psc\Drive\Laravel\Coroutine\Database;
 
-use Illuminate\Contracts\Container\BindingResolutionException;
-use Illuminate\Contracts\Http\Kernel;
+use Closure;
 use Illuminate\Database\Connection;
-use Illuminate\Support\Env;
-use Illuminate\Support\ServiceProvider;
-use Psc\Drive\Laravel\Coroutine\Database\Factory;
-use Psc\Drive\Laravel\Middleware\IsolationMiddleware;
+use Illuminate\Database\Connectors\ConnectionFactory;
+use Illuminate\Database\MariaDbConnection;
+use Illuminate\Database\MySqlConnection;
+use Illuminate\Database\PostgresConnection;
+use Illuminate\Database\SQLiteConnection;
+use Illuminate\Database\SqlServerConnection;
+use PDO;
 
-use function in_array;
-
-class Provider extends ServiceProvider
+class Factory extends ConnectionFactory
 {
     /**
-     * Register any application services.
+     * Create a new connection instance.
      *
-     * @return void
-     * @throws BindingResolutionException
+     * @param string      $driver
+     * @param PDO|Closure $connection
+     * @param string      $database
+     * @param string      $prefix
+     * @param array       $config
+     * @return SQLiteConnection|MariaDbConnection|MySqlConnection|PostgresConnection|SqlServerConnection|Connection
+     *
      */
-    public function register(): void
+    protected function createConnection($driver, $connection, $database, $prefix = '', array $config = []): SQLiteConnection|MariaDbConnection|MySqlConnection|PostgresConnection|SqlServerConnection|Connection
     {
-        $this->commands([PDrive::class]);
-        $this->commands([PDriveLast::class]);
+        return match ($driver) {
+            // Coroutine MySQL connection
+            'mysql-amp' => new MySQL\Connection($connection, $database, $prefix, $config),
 
-        // 开始注册服务
-        $kernel = $this->app->make(Kernel::class);
-        $this->app->singleton('db.factory', fn () => new Factory($this->app));
-        Connection::resolverFor('mysql-amp', function ($connection, $database, $prefix, $config) {
-            return new Coroutine\Database\MySQL\Connection($connection, $database, $prefix, $config);
-        });
-
-        // 配置项: 安全隔离模式
-        $P_ISOLATION = Env::get('P_ISOLATION');
-
-        if ($this->isTrue($P_ISOLATION)) {
-            $kernel->prependMiddleware(IsolationMiddleware::class);
-        }
-    }
-
-    /**
-     * @param mixed $value
-     * @return bool
-     */
-    private function isTrue(mixed $value): bool
-    {
-        return in_array($value, [true, 'true', 1, '1', 'on'], true);
+            // Native database connection
+            default => parent::createConnection($driver, $connection, $database, $prefix, $config)
+        };
     }
 }

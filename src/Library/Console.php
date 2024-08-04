@@ -32,52 +32,46 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+namespace Psc\Drive\Library;
 
-use Illuminate\Contracts\Container\BindingResolutionException;
-use Illuminate\Contracts\Http\Kernel;
-use Illuminate\Database\Connection;
-use Illuminate\Support\Env;
-use Illuminate\Support\ServiceProvider;
-use Psc\Drive\Laravel\Coroutine\Database\Factory;
-use Psc\Drive\Laravel\Middleware\IsolationMiddleware;
+use function str_pad;
 
-use function in_array;
-
-class Provider extends ServiceProvider
+trait Console
 {
     /**
-     * Register any application services.
-     *
-     * @return void
-     * @throws BindingResolutionException
+     * @param array  $row
+     * @param string $type
+     * @return string
      */
-    public function register(): void
+    private function formatRow(array $row, string $type = ''): string
     {
-        $this->commands([PDrive::class]);
-        $this->commands([PDriveLast::class]);
-
-        // 开始注册服务
-        $kernel = $this->app->make(Kernel::class);
-        $this->app->singleton('db.factory', fn () => new Factory($this->app));
-        Connection::resolverFor('mysql-amp', function ($connection, $database, $prefix, $config) {
-            return new Coroutine\Database\MySQL\Connection($connection, $database, $prefix, $config);
-        });
-
-        // 配置项: 安全隔离模式
-        $P_ISOLATION = Env::get('P_ISOLATION');
-
-        if ($this->isTrue($P_ISOLATION)) {
-            $kernel->prependMiddleware(IsolationMiddleware::class);
+        $output    = '';
+        $colorCode = $this->getColorCode($type);
+        foreach ($row as $col) {
+            $output .= str_pad("{$colorCode}{$col}\033[0m", 40);
         }
+        return $output . "\n";
     }
 
     /**
-     * @param mixed $value
-     * @return bool
+     * @param string $item
+     * @return string
      */
-    private function isTrue(mixed $value): bool
+    private function formatList(string $item): string
     {
-        return in_array($value, [true, 'true', 1, '1', 'on'], true);
+        return "  - $item\n";
+    }
+
+    /**
+     * @param string $type
+     * @return string
+     */
+    private function getColorCode(string $type): string
+    {
+        return match ($type) {
+            'info' => "\033[1;36m",
+            'thread' => "\033[1;33m",
+            default => "",
+        };
     }
 }

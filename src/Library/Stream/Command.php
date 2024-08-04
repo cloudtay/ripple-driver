@@ -32,52 +32,50 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+namespace Psc\Drive\Library\Stream;
 
-use Illuminate\Contracts\Container\BindingResolutionException;
-use Illuminate\Contracts\Http\Kernel;
-use Illuminate\Database\Connection;
-use Illuminate\Support\Env;
-use Illuminate\Support\ServiceProvider;
-use Psc\Drive\Laravel\Coroutine\Database\Factory;
-use Psc\Drive\Laravel\Middleware\IsolationMiddleware;
+use function serialize;
+use function spl_object_hash;
 
-use function in_array;
-
-class Provider extends ServiceProvider
+class Command
 {
     /**
-     * Register any application services.
-     *
-     * @return void
-     * @throws BindingResolutionException
+     * @var string
      */
-    public function register(): void
-    {
-        $this->commands([PDrive::class]);
-        $this->commands([PDriveLast::class]);
+    public readonly string $id;
 
-        // 开始注册服务
-        $kernel = $this->app->make(Kernel::class);
-        $this->app->singleton('db.factory', fn () => new Factory($this->app));
-        Connection::resolverFor('mysql-amp', function ($connection, $database, $prefix, $config) {
-            return new Coroutine\Database\MySQL\Connection($connection, $database, $prefix, $config);
-        });
+    /**
+     * @var mixed
+     */
+    public mixed $result;
 
-        // 配置项: 安全隔离模式
-        $P_ISOLATION = Env::get('P_ISOLATION');
-
-        if ($this->isTrue($P_ISOLATION)) {
-            $kernel->prependMiddleware(IsolationMiddleware::class);
-        }
+    /**
+     * @param string $name
+     * @param array  $arguments
+     * @param array  $options
+     */
+    public function __construct(
+        public readonly string $name,
+        public readonly array  $arguments = [],
+        public readonly array  $options = [],
+    ) {
+        $this->id = spl_object_hash($this);
     }
 
     /**
-     * @param mixed $value
-     * @return bool
+     * @param mixed $result
+     * @return void
      */
-    private function isTrue(mixed $value): bool
+    public function setResult(mixed $result): void
     {
-        return in_array($value, [true, 'true', 1, '1', 'on'], true);
+        $this->result = $result;
+    }
+
+    /**
+     * @return string
+     */
+    public function __toString(): string
+    {
+        return serialize($this);
     }
 }

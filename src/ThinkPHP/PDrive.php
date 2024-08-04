@@ -38,7 +38,7 @@ use JetBrains\PhpStorm\NoReturn;
 use P\System;
 use Psc\Core\Coroutine\Promise;
 use Psc\Core\Stream\Stream;
-use Psc\Drive\Stream\Frame;
+use Psc\Drive\Library\Stream\Frame;
 use Psc\Std\Stream\Exception\ConnectionException;
 use think\console\Command;
 use think\console\Input;
@@ -54,10 +54,9 @@ use function P\onSignal;
 use function P\run;
 use function posix_mkfifo;
 use function putenv;
+use function root_path;
 use function sprintf;
 use function unserialize;
-
-use function root_path;
 
 use const PHP_BINARY;
 use const SIGINT;
@@ -100,19 +99,13 @@ class PDrive extends Command
      */
     private Stream $serialInputStream;
 
-    /**
-     * @var Frame
-     */
+    /*** @var Frame */
     private Frame $frame;
 
-    /**
-     * @var Input
-     */
+    /*** @var Input */
     private Input $_input;
 
-    /**
-     * @var Output
-     */
+    /*** @var Output */
     private Output $_output;
 
     /**
@@ -183,7 +176,7 @@ class PDrive extends Command
 
             case 'stop':
                 if (!file_exists(__DIR__ . '/Guide.php.pid')) {
-                    \Psc\Core\Output::warning('The service is not running.');
+                    \Psc\Utils\Output::warning('The service is not running.');
                     exit(0);
                 }
 
@@ -200,7 +193,7 @@ class PDrive extends Command
 
                 // no break
             default:
-                \Psc\Core\Output::warning('Invalid action.');
+                \Psc\Utils\Output::warning('Invalid action.');
                 break;
         }
     }
@@ -222,8 +215,8 @@ class PDrive extends Command
         putenv("P_RIPPLE_THREADS=$threads");
 
         if (file_exists(__DIR__ . '/Guide.php.pid')) {
-            \Psc\Core\Output::warning('The service is already running.');
-            \Psc\Core\Output::warning("file exists: {$this->serialStdin}");
+            \Psc\Utils\Output::warning('The service is already running.');
+            \Psc\Utils\Output::warning("file exists: {$this->serialStdin}");
             exit(0);
         }
 
@@ -267,7 +260,7 @@ class PDrive extends Command
         });
 
         if (!file_exists(__DIR__ . '/Guide.php.pid')) {
-            \Psc\Core\Output::warning('The service is not running.');
+            \Psc\Utils\Output::warning('The service is not running.');
             exit(0);
         }
 
@@ -298,7 +291,7 @@ class PDrive extends Command
         array  $arguments = [],
         array  $options = []
     ): Promise {
-        $command = new \Psc\Drive\Stream\Command(
+        $command = new \Psc\Drive\Library\Stream\Command(
             $name,
             $arguments,
             $options
@@ -315,10 +308,10 @@ class PDrive extends Command
     }
 
     /**
-     * @param \Psc\Drive\Stream\Command $command
+     * @param \Psc\Drive\Library\Stream\Command $command
      * @return void
      */
-    private function onCommand(\Psc\Drive\Stream\Command $command): void
+    private function onCommand(\Psc\Drive\Library\Stream\Command $command): void
     {
         if (isset($this->queue[$command->id])) {
             $this->queue[$command->id]['resolve']($command->result);
