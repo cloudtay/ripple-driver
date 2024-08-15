@@ -41,7 +41,7 @@ use Illuminate\Support\Env;
 use Illuminate\Support\ServiceProvider;
 use Psc\Drive\Laravel\Coroutine\Database\Factory;
 use Psc\Drive\Laravel\Middleware\IsolationMiddleware;
-
+use Psc\Worker\Manager;
 use function in_array;
 
 class Provider extends ServiceProvider
@@ -55,17 +55,21 @@ class Provider extends ServiceProvider
     public function register(): void
     {
         $this->commands([PDrive::class]);
-        $this->commands([PDriveLast::class]);
+        $this->app->singleton(Manager::class, static function () {
+            return new Manager();
+        });
 
-        // 开始注册服务
+        // 注册服务容器
         $kernel = $this->app->make(Kernel::class);
-        $this->app->singleton('db.factory', fn () => new Factory($this->app));
+
+        // 注册协程数据库
+        $this->app->singleton('db.factory', fn() => new Factory($this->app));
         Connection::resolverFor('mysql-amp', function ($connection, $database, $prefix, $config) {
             return new Coroutine\Database\MySQL\Connection($connection, $database, $prefix, $config);
         });
 
         // 配置项: 安全隔离模式
-        $P_ISOLATION = Env::get('P_ISOLATION');
+        $P_ISOLATION = Env::get('PRP_ISOLATION');
 
         if ($this->isTrue($P_ISOLATION)) {
             $kernel->prependMiddleware(IsolationMiddleware::class);

@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 /*
  * Copyright (c) 2023-2024.
  *
@@ -32,71 +33,53 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+use Psc\Drive\Worker\Command;
+use Psc\Drive\Worker\Manager;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Env;
-use Psc\Worker\Manager;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
-use function app;
-use function intval;
+use function P\delay;
 use function P\tick;
 
-/**
- * @Author cclilshy
- * @Date   2024/8/17 16:16
- */
-class PDrive extends Command
-{
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
-    protected $signature = 'p:server';
+include __DIR__ . '/../vendor/autoload.php';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'start the P-Drive service';
-
-    /**
-     * @var Manager
-     */
-    private Manager $manager;
-
-    /**
-     * @param InputInterface  $input
-     * @param OutputInterface $output
-     * @return void
-     */
-    public function initialize(InputInterface $input, OutputInterface $output): void
+$manager = new Manager();
+$manager->addWorker(new class () extends \Psc\Drive\Worker\Worker {
+    public function register(Manager $manager): void
     {
-        parent::initialize($input, $output);
-        $this->manager = app(Manager::class);
+    }
+
+    public function getName(): string
+    {
+        return 'test';
+    }
+
+    public function getCount(): int
+    {
+        return 2;
+    }
+
+    public function boot(): void
+    {
+        delay(function () {
+            $this->commandToWorker(Command::make('debug', []), $this->getName());
+        }, 1);
+    }
+
+    public function onCommand(Command $workerCommand): void
+    {
+        \var_dump($workerCommand);
     }
 
     /**
-     * 运行服务
+     * @Author cclilshy
+     * @Date   2024/8/17 02:00
      * @return void
      */
-    public function handle(): void
+    public function onReload(): void
     {
-        $this->start();
-        tick();
-    }
 
-    /**
-     * @return void
-     */
-    private function start(): void
-    {
-        $listen = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
-        $count  = intval(Env::get('PRP_HTTP_COUNT', 4)) ?? 4;
-        $this->manager->addWorker(new Worker($listen, $count));
-        $this->manager->run();
     }
-}
+});
+
+$manager->run();
+
+tick();

@@ -49,6 +49,10 @@ use function in_array;
 use function spl_object_hash;
 use function trim;
 
+/**
+ * @Author cclilshy
+ * @Date   2024/8/17 15:48
+ */
 class Connection extends MySqlConnection
 {
     private const ALLOW_OPTIONS = [
@@ -287,7 +291,7 @@ class Connection extends MySqlConnection
      */
     public function reconnect()
     {
-        //TODO: 无事可做
+        //TODO: 使其不作为
     }
 
     /**
@@ -295,7 +299,7 @@ class Connection extends MySqlConnection
      */
     public function reconnectIfMissingConnection()
     {
-        //TODO: 无事可做
+        //TODO: 使其不作为
     }
 
     /**

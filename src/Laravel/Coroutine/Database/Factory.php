@@ -37,6 +37,7 @@ namespace Psc\Drive\Laravel\Coroutine\Database;
 use Closure;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Connectors\ConnectionFactory;
+use Illuminate\Database\Connectors\ConnectorInterface;
 use Illuminate\Database\MariaDbConnection;
 use Illuminate\Database\MySqlConnection;
 use Illuminate\Database\PostgresConnection;
@@ -65,6 +66,21 @@ class Factory extends ConnectionFactory
 
             // Native database connection
             default => parent::createConnection($driver, $connection, $database, $prefix, $config)
+        };
+    }
+
+    /**
+     * @param array $config
+     * @return ConnectorInterface
+     */
+    public function createConnector(array $config): ConnectorInterface
+    {
+        return match ($config['driver']) {
+            // Coroutine MySQL connector
+            'mysql-amp' => new MySQL\Connector(),
+
+            // Coroutine MySQL connector
+            default => parent::createConnector($config)
         };
     }
 }

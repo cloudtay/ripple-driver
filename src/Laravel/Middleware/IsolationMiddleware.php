@@ -35,6 +35,7 @@
 namespace Psc\Drive\Laravel\Middleware;
 
 use Closure;
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 
@@ -46,12 +47,13 @@ class IsolationMiddleware
      * @param Request $request
      * @param Closure $next
      * @return mixed
+     * @throws BindingResolutionException
      */
     public function handle(Request $request, Closure $next): mixed
     {
         $route = $request->route();
         if ($route instanceof Route) {
-            $route->controller = app($route->getControllerClass());
+            $route->controller = app()->make($route->getControllerClass());
         }
         return $next($request);
     }

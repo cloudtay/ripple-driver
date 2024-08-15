@@ -35,8 +35,8 @@
 include_once __DIR__ . '/../vendor/autoload.php';
 
 use GuzzleHttp\Promise\Promise;
-use Psc\Core\Output;
 use Psc\Drive\Workerman\PDrive;
+use Psc\Utils\Output;
 use Workerman\Timer;
 use Workerman\Worker;
 
@@ -81,7 +81,7 @@ $worker->onMessage = function ($connection, $data) {
         ->then(function ($response) use ($connection) {
             $connection->send("[async] Response status code: {$response->getStatusCode()}" . \PHP_EOL);
         })
-        ->except(function (Exception $e) use ($connection) {
+        ->otherwise(function (Exception $e) use ($connection) {
             $connection->send("[async] Exception: {$e->getMessage()}" . \PHP_EOL);
         });
 

@@ -32,45 +32,10 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+namespace Psc\Drive\Laravel\Coroutine\Database\MySQL;
 
-use Illuminate\Console\Command;
+use Illuminate\Database\Connectors\MySqlConnector;
 
-/**
- * 驱动使用proc_open指令运行Laravel服务并嫁接sh输出至serialStdin中,
- * 与服务实体的通讯采用r+w双线管道模式传呼指令,该类只负责启动|通讯服务,
- * 不作为信息的载体
- */
-class PDriveLast extends Command
+class Connector extends MySqlConnector
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
-    protected $signature = 'p:run
-    {action=start : The action to perform}
-    {--s|listen=http://127.0.0.1:8008 : The address to listen on,default http://127.0.0.1:8008}
-    {--t|threads=4 : The number of threads to use,default 4}
-    {--d|daemon : Run the service in the background}
-    ';
-
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'This command will be abandoned, please use the p:server command instead.';
-
-    public function handle(): void
-    {
-        $this->warn('This command will be abandoned, please use the p:server command instead.');
-
-        $this->call('p:server', [
-            'action'    => $this->argument('action'),
-            '--listen'  => $this->option('listen'),
-            '--threads' => $this->option('threads'),
-            '--daemon'  => $this->option('daemon'),
-        ]);
-    }
 }

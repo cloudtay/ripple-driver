@@ -17,12 +17,13 @@
     "php": ">=8.1",
     "ext-pcntl": "*",
     "ext-posix": "*",
-    "cclilshy/p-ripple-core": "v0.3.4",
+    "cclilshy/p-ripple-core": "dev-main",
     "amphp/mysql": "^3.0",
-    "ext-pdo": "*"
+    "ext-pdo": "*",
+    "workerman/workerman": "^4.1",
+    "ext-sockets": "*"
   },
   "require-dev": {
-    "workerman/workerman": "^4.1",
     "illuminate/support": "^11.15",
     "symfony/console": "^7.1",
     "illuminate/http": "^11.15",
