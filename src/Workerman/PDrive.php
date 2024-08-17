@@ -38,7 +38,6 @@ use Closure;
 use P\System;
 use Psc\Core\Stream\Stream;
 use Psc\Utils\Output;
-use Revolt\EventLoop;
 use Revolt\EventLoop\UnsupportedFeatureException;
 use Throwable;
 use Workerman\Events\EventInterface;
@@ -231,7 +230,6 @@ class PDrive implements EventInterface
     public function destroy(): void
     {
         cancelAll();
-        EventLoop::getDriver()->stop();
     }
 
     /**

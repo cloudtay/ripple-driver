@@ -32,10 +32,9 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+namespace Psc\Drive\ThinkPHP;
 
 use Illuminate\Container\Container;
-use Illuminate\Foundation\Application;
 use JetBrains\PhpStorm\NoReturn;
 use P\IO;
 use P\Net;
@@ -47,14 +46,14 @@ use Psc\Std\Stream\Exception\ConnectionException;
 use Psc\Utils\Output;
 use Psc\Worker\Command;
 use Psc\Worker\Manager;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use think\App;
+use think\response\File;
 
-use function base_path;
 use function cli_set_process_title;
-use function fopen;
 use function fwrite;
 use function P\cancelAll;
 use function posix_getppid;
+use function root_path;
 use function sprintf;
 use function stream_context_create;
 
@@ -101,7 +100,7 @@ class Worker extends \Psc\Worker\Worker
         fwrite(STDOUT, $this->formatRow(["Workers", $this->count], 'info'));
         fwrite(STDOUT, $this->formatRow(["- Logs"], 'thread'));
 
-        $monitor          = IO::File()->watch(base_path(), 'php');
+        $monitor          = IO::File()->watch(root_path(), 'php');
         $monitor->onTouch = function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} touched");
@@ -129,11 +128,6 @@ class Worker extends \Psc\Worker\Worker
         cli_set_process_title('laravel-worker');
 
         /**
-         * @var Application $application
-         */
-        $application = include base_path('/bootstrap/app.php');
-
-        /**
          * @param Request  $request
          * @param Response $response
          * @return void
@@ -142,28 +136,35 @@ class Worker extends \Psc\Worker\Worker
         $this->httpServer->onRequest(static function (
             Request  $request,
             Response $response
-        ) use ($application) {
-            $laravelRequest  = new \Illuminate\Http\Request(
-                $request->query->all(),
-                $request->request->all(),
-                $request->attributes->all(),
-                $request->cookies->all(),
-                $request->files->all(),
-                $request->server->all(),
-                $request->getContent(),
-            );
-            $symfonyResponse = $application->handle($laravelRequest);
-            $response->setStatusCode($symfonyResponse->getStatusCode());
-            $response->setProtocolVersion($symfonyResponse->getProtocolVersion());
-            $response->headers->add($symfonyResponse->headers->all());
-            if ($symfonyResponse instanceof BinaryFileResponse) {
+        ) {
+            $app  = new App();
+            $http = $app->http;
+
+            $thinkRequest = new \think\Request();
+            $thinkRequest->setUrl($request->getUri());
+            $thinkRequest->setBaseUrl($request->getBaseUrl());
+            $thinkRequest->setHost($request->getHost());
+            $thinkRequest->setPathinfo($request->getPathInfo());
+            $thinkRequest->setMethod($request->getMethod());
+            $thinkRequest->withHeader($request->headers->all());
+            $thinkRequest->withCookie($request->cookies->all());
+            $thinkRequest->withFiles($request->files->all());
+            $thinkRequest->withGet($request->query->all());
+            $thinkRequest->withInput($request->getContent());
+
+            $thinkResponse = $http->run($thinkRequest);
+
+            $response->setStatusCode($thinkResponse->getCode());
+            $response->headers->add($thinkResponse->getHeader());
+
+            if ($thinkResponse instanceof File) {
                 $response->setContent(
-                    fopen($symfonyResponse->getFile()->getPathname(), 'r+'),
+                    IO::File()->open($thinkResponse->getData(), 'r+')
                 );
             } else {
                 $response->setContent(
-                    $symfonyResponse->getContent(),
-                    $symfonyResponse->headers->get('Content-Type')
+                    $thinkResponse->getData(),
+                    $thinkResponse->getHeader('Content-Type')
                 );
             }
             $response->respond();

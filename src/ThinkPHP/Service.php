@@ -34,18 +34,47 @@
 
 namespace Psc\Drive\ThinkPHP;
 
+use Illuminate\Support\Env;
+use Psc\Drive\ThinkPHP\Middleware\IsolationMiddleware;
+use Psc\Worker\Manager;
 use think\Service as ThinkPHPService;
 
+use function in_array;
+
 /**
- * ThinkPHP服务容器
+ * @Author cclilshy
+ * @Date   2024/8/17 18:20
  */
 class Service extends ThinkPHPService
 {
+    /**
+     * @Author cclilshy
+     * @Date   2024/8/17 18:20
+     * @return void
+     */
     public function register(): void
     {
+        // 注册服务管理器
+        $this->app->bind(Manager::class, fn () => new Manager());
+
+        // 注册终端
         $this->commands([
-            'p:run'    => PDrive::class,
             'p:server' => PDrive::class
         ]);
+
+        // 配置项-安全隔离模式
+        $PRP_ISOLATION = Env::get('PRP_ISOLATION');
+        if ($this->isTrue($PRP_ISOLATION)) {
+            $this->app->middleware->add(IsolationMiddleware::class);
+        }
+    }
+
+    /**
+     * @param mixed $value
+     * @return bool
+     */
+    private function isTrue(mixed $value): bool
+    {
+        return in_array($value, [true, 'true', 1, '1', 'on'], true);
     }
 }

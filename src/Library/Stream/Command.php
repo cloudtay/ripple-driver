@@ -58,7 +58,8 @@ class Command
         public readonly string $name,
         public readonly array  $arguments = [],
         public readonly array  $options = [],
-    ) {
+    )
+    {
         $this->id = spl_object_hash($this);
     }
 

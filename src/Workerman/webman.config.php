@@ -41,13 +41,7 @@ use Psc\Drive\Workerman\PDrive;
 
 return [
     // server.php 配置文件
-    'server'    => [
+    'server' => [
         'event_loop' => PDrive::class,
-    ],
-
-    // container.php 配置文件
-    'coroutine' => [
-        // 自动启用协程版database
-        'database' => 1
-    ],
+    ]
 ];

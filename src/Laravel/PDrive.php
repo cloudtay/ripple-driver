@@ -39,6 +39,7 @@ use Illuminate\Support\Env;
 use Psc\Worker\Manager;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+
 use function app;
 use function intval;
 use function P\tick;
