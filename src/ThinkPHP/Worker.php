@@ -34,14 +34,13 @@
 
 namespace Psc\Drive\ThinkPHP;
 
-use Illuminate\Container\Container;
 use JetBrains\PhpStorm\NoReturn;
 use P\IO;
 use P\Net;
 use Psc\Core\Http\Server\HttpServer;
 use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Response;
-use Psc\Drive\Library\Console;
+use Psc\Drive\Utils\Console;
 use Psc\Std\Stream\Exception\ConnectionException;
 use Psc\Utils\Output;
 use Psc\Worker\Command;
@@ -49,6 +48,7 @@ use Psc\Worker\Manager;
 use think\App;
 use think\response\File;
 
+use function app;
 use function cli_set_process_title;
 use function fwrite;
 use function P\cancelAll;
@@ -90,8 +90,8 @@ class Worker extends \Psc\Worker\Worker
      */
     public function register(Manager $manager): void
     {
-        cli_set_process_title('laravel-guard');
-        Container::getInstance()->instance(Worker::class, $manager);
+        cli_set_process_title('think-guard');
+        app()->bind(Worker::class, $manager);
 
         $context          = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->httpServer = Net::Http()->server($this->address, $context);
@@ -125,7 +125,7 @@ class Worker extends \Psc\Worker\Worker
     public function boot(): void
     {
         fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getppid()));
-        cli_set_process_title('laravel-worker');
+        cli_set_process_title('think-worker');
 
         /**
          * @param Request  $request

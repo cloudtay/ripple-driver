@@ -34,9 +34,9 @@
 
 namespace Psc\Drive\ThinkPHP;
 
-use Illuminate\Support\Env;
 use Psc\Drive\ThinkPHP\Middleware\IsolationMiddleware;
 use Psc\Worker\Manager;
+use think\facade\Env;
 use think\Service as ThinkPHPService;
 
 use function in_array;

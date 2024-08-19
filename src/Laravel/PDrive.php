@@ -36,13 +36,34 @@ namespace Psc\Drive\Laravel;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Env;
+use Psc\Core\Stream\Stream;
+use Psc\Std\Stream\Exception\ConnectionException;
+use Psc\Utils\Output;
+use Psc\Utils\Serialization\Zx7e;
 use Psc\Worker\Manager;
+use Revolt\EventLoop\UnsupportedFeatureException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 use function app;
+use function base_path;
+use function file_exists;
+use function fopen;
 use function intval;
+use function json_decode;
+use function P\cancelAll;
+use function P\onSignal;
 use function P\tick;
+use function posix_mkfifo;
+use function shell_exec;
+use function sprintf;
+use function storage_path;
+use function unlink;
+
+use const PHP_BINARY;
+use const SIGINT;
+use const SIGQUIT;
+use const SIGTERM;
 
 /**
  * @Author cclilshy
@@ -55,7 +76,9 @@ class PDrive extends Command
      *
      * @var string
      */
-    protected $signature = 'p:server';
+    protected $signature = 'p:server
+    {action=start : The action to perform ,Support start|stop|reload|status}
+    {--d|daemon : Run the server in the background}';
 
     /**
      * The console command description.
@@ -70,6 +93,11 @@ class PDrive extends Command
     private Manager $manager;
 
     /**
+     * @var string
+     */
+    private string $controlPipePath;
+
+    /**
      * @param InputInterface  $input
      * @param OutputInterface $output
      * @return void
@@ -77,17 +105,70 @@ class PDrive extends Command
     public function initialize(InputInterface $input, OutputInterface $output): void
     {
         parent::initialize($input, $output);
-        $this->manager = app(Manager::class);
+        $this->manager         = app(Manager::class);
+        $this->controlPipePath = __DIR__ . '/control.pipe';
     }
 
     /**
      * 运行服务
      * @return void
+     * @throws ConnectionException|UnsupportedFeatureException
      */
     public function handle(): void
     {
-        $this->start();
-        tick();
+        $zx7e = new Zx7e();
+        switch ($this->argument('action')) {
+            case 'start':
+                if (file_exists($this->controlPipePath)) {
+                    Output::warning('The server is already running');
+                    return;
+                }
+                if (!$this->option('daemon')) {
+                    $this->start();
+                    onSignal(SIGINT, fn () => $this->stop());
+                    onSignal(SIGTERM, fn () => $this->stop());
+                    onSignal(SIGQUIT, fn () => $this->stop());
+                    tick();
+                } else {
+                    $command = sprintf(
+                        '%s %s p:server start > %s &',
+                        PHP_BINARY,
+                        base_path('artisan'),
+                        storage_path('logs/prp.log')
+                    );
+                    shell_exec($command);
+                }
+                Output::writeln('server started');
+                exit(0);
+            case 'stop':
+                if (!file_exists($this->controlPipePath)) {
+                    Output::warning('The server is not running');
+                    return;
+                }
+                $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
+                $controlStream->write($zx7e->encodeFrame('{"action":"stop"}'));
+                Output::writeln('The server is stopping');
+                break;
+            case 'reload':
+                if (!file_exists($this->controlPipePath)) {
+                    Output::warning('The server is not running');
+                    return;
+                }
+                $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
+                $controlStream->write($zx7e->encodeFrame('{"action":"reload"}'));
+                Output::writeln('The server is reloading');
+                break;
+            case 'status':
+                if (!file_exists($this->controlPipePath)) {
+                    Output::writeln('The server is not running');
+                } else {
+                    Output::writeln('The server is running');
+                }
+                break;
+            default:
+                Output::warning('Unsupported operation');
+                return;
+        }
     }
 
     /**
@@ -95,9 +176,49 @@ class PDrive extends Command
      */
     private function start(): void
     {
+        if (!file_exists($this->controlPipePath)) {
+            posix_mkfifo($this->controlPipePath, 0600);
+        }
+
+        $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
+        $controlStream->setBlocking(false);
+
+        $zx7e = new Zx7e();
+        $controlStream->onReadable(function (Stream $controlStream) use ($zx7e) {
+            $content = $controlStream->read(1024);
+            foreach ($zx7e->decodeStream($content) as $command) {
+                $command = json_decode($command, true);
+                $action  = $command['action'];
+                switch ($action) {
+                    case 'stop':
+                        $this->stop();
+                        break;
+                    case 'reload':
+                        $this->manager->reload();
+                        break;
+                    case 'status':
+                        break;
+                }
+            }
+        });
+
         $listen = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
         $count  = intval(Env::get('PRP_HTTP_COUNT', 4)) ?? 4;
         $this->manager->addWorker(new Worker($listen, $count));
         $this->manager->run();
+    }
+
+    /**
+     * @Author cclilshy
+     * @Date   2024/8/19 10:33
+     * @return void
+     */
+    private function stop(): void
+    {
+        cancelAll();
+        $this->manager->stop();
+        if (file_exists($this->controlPipePath)) {
+            unlink($this->controlPipePath);
+        }
     }
 }

@@ -32,46 +32,22 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Library;
+namespace Psc\Drive\Utils;
 
 use function str_pad;
 
 trait Console
 {
     /**
-     * @param array  $row
-     * @param string $type
+     * @param array $row
      * @return string
      */
-    private function formatRow(array $row, string $type = ''): string
+    private function formatRow(array $row): string
     {
-        $output    = '';
-        $colorCode = $this->getColorCode($type);
+        $output = '';
         foreach ($row as $col) {
-            $output .= str_pad("{$colorCode}{$col}\033[0m", 40);
+            $output .= str_pad("{$col}", 40);
         }
         return $output . "\n";
-    }
-
-    /**
-     * @param string $item
-     * @return string
-     */
-    private function formatList(string $item): string
-    {
-        return "  - $item\n";
-    }
-
-    /**
-     * @param string $type
-     * @return string
-     */
-    private function getColorCode(string $type): string
-    {
-        return match ($type) {
-            'info' => "\033[1;36m",
-            'thread' => "\033[1;33m",
-            default => "",
-        };
     }
 }

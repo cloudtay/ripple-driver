@@ -42,7 +42,7 @@ use P\Net;
 use Psc\Core\Http\Server\HttpServer;
 use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Response;
-use Psc\Drive\Library\Console;
+use Psc\Drive\Utils\Console;
 use Psc\Std\Stream\Exception\ConnectionException;
 use Psc\Utils\Output;
 use Psc\Worker\Command;
@@ -96,10 +96,10 @@ class Worker extends \Psc\Worker\Worker
 
         $context          = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->httpServer = Net::Http()->server($this->address, $context);
-        fwrite(STDOUT, $this->formatRow(['Worker', $this->getName()], 'info'));
-        fwrite(STDOUT, $this->formatRow(['Listen', $this->address], 'info'));
-        fwrite(STDOUT, $this->formatRow(["Workers", $this->count], 'info'));
-        fwrite(STDOUT, $this->formatRow(["- Logs"], 'thread'));
+        fwrite(STDOUT, $this->formatRow(['Worker', $this->getName()]));
+        fwrite(STDOUT, $this->formatRow(['Listen', $this->address]));
+        fwrite(STDOUT, $this->formatRow(["Workers", $this->count]));
+        fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
         $monitor          = IO::File()->watch(base_path(), 'php');
         $monitor->onTouch = function (string $file) use ($manager) {
