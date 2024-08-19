@@ -42,7 +42,6 @@ use Illuminate\Support\ServiceProvider;
 use Psc\Drive\Laravel\Coroutine\Database\Factory;
 use Psc\Drive\Laravel\Middleware\IsolationMiddleware;
 use Psc\Worker\Manager;
-
 use function in_array;
 
 class Provider extends ServiceProvider
@@ -64,8 +63,8 @@ class Provider extends ServiceProvider
         $kernel = $this->app->make(Kernel::class);
 
         // 注册协程数据库
-        $this->app->singleton('db.factory', fn () => new Factory($this->app));
-        Connection::resolverFor('mysql-amp', function ($connection, $database, $prefix, $config) {
+        $this->app->singleton('db.factory', fn() => new Factory($this->app));
+        Connection::resolverFor('mysql-amp', static function ($connection, $database, $prefix, $config) {
             return new Coroutine\Database\MySQL\Connection($connection, $database, $prefix, $config);
         });
 
@@ -73,7 +72,8 @@ class Provider extends ServiceProvider
         $PRP_ISOLATION = Env::get('PRP_ISOLATION');
 
         if ($this->isTrue($PRP_ISOLATION)) {
-            $kernel->prependMiddleware(IsolationMiddleware::class);
+            $kernel->appendMiddlewareToGroup('web', IsolationMiddleware::class);
+            $kernel->appendMiddlewareToGroup('api', IsolationMiddleware::class);
         }
     }
 

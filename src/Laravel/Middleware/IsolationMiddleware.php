@@ -53,7 +53,9 @@ class IsolationMiddleware
     {
         $route = $request->route();
         if ($route instanceof Route) {
-            $route->controller = app()->make($route->getControllerClass());
+            if ($controllerClass = $route->getControllerClass()) {
+                $route->controller = app()->make($controllerClass);
+            }
         }
         return $next($request);
     }

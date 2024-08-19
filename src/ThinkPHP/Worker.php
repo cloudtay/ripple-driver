@@ -101,17 +101,17 @@ class Worker extends \Psc\Worker\Worker
         fwrite(STDOUT, $this->formatRow(["- Logs"], 'thread'));
 
         $monitor          = IO::File()->watch(root_path(), 'php');
-        $monitor->onTouch = function (string $file) use ($manager) {
+        $monitor->onTouch = static function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} touched");
         };
 
-        $monitor->onModify = function (string $file) use ($manager) {
+        $monitor->onModify = static function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} modify");
         };
 
-        $monitor->onRemove = function (string $file) use ($manager) {
+        $monitor->onRemove = static function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} remove");
         };
