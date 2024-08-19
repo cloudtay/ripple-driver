@@ -50,6 +50,7 @@ use function file_exists;
 use function fopen;
 use function intval;
 use function json_decode;
+use function mkdir;
 use function P\cancelAll;
 use function P\onSignal;
 use function P\tick;
@@ -102,16 +103,16 @@ class PDrive extends Command
                 }
                 if (!$input->getOption('daemon')) {
                     $this->start();
-                    onSignal(SIGINT, fn () => $this->stop());
-                    onSignal(SIGTERM, fn () => $this->stop());
-                    onSignal(SIGQUIT, fn () => $this->stop());
                     tick();
                 } else {
+                    if (!file_exists(runtime_path('log'))) {
+                        mkdir(runtime_path('log'), 0755, true);
+                    }
                     $command = sprintf(
                         '%s %s p:server start > %s &',
                         PHP_BINARY,
-                        root_path('think'),
-                        runtime_path('logs/prp.log')
+                        root_path() . 'think',
+                        runtime_path('log') . 'prp.log'
                     );
                     shell_exec($command);
                 }
@@ -150,39 +151,45 @@ class PDrive extends Command
 
     /**
      * @return void
+     * @throws UnsupportedFeatureException
      */
     private function start(): void
     {
-        if (!file_exists($this->controlPipePath)) {
-            posix_mkfifo($this->controlPipePath, 0600);
-        }
-
-        $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
-        $controlStream->setBlocking(false);
-
-        $zx7e = new Zx7e();
-        $controlStream->onReadable(function (Stream $controlStream) use ($zx7e) {
-            $content = $controlStream->read(1024);
-            foreach ($zx7e->decodeStream($content) as $command) {
-                $command = json_decode($command, true);
-                $action  = $command['action'];
-                switch ($action) {
-                    case 'stop':
-                        $this->stop();
-                        break;
-                    case 'reload':
-                        $this->manager->reload();
-                        break;
-                    case 'status':
-                        break;
-                }
+        onSignal(SIGINT, fn () => $this->stop());
+        onSignal(SIGTERM, fn () => $this->stop());
+        onSignal(SIGQUIT, fn () => $this->stop());
+        \P\defer(function () {
+            if (!file_exists($this->controlPipePath)) {
+                posix_mkfifo($this->controlPipePath, 0600);
             }
-        });
 
-        $listen = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
-        $count  = intval(Env::get('PRP_HTTP_COUNT', 4)) ?? 4;
-        $this->manager->addWorker(new Worker($listen, $count));
-        $this->manager->run();
+            $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
+            $controlStream->setBlocking(false);
+
+            $zx7e = new Zx7e();
+            $controlStream->onReadable(function (Stream $controlStream) use ($zx7e) {
+                $content = $controlStream->read(1024);
+                foreach ($zx7e->decodeStream($content) as $command) {
+                    $command = json_decode($command, true);
+                    $action  = $command['action'];
+                    switch ($action) {
+                        case 'stop':
+                            $this->stop();
+                            break;
+                        case 'reload':
+                            $this->manager->reload();
+                            break;
+                        case 'status':
+                            break;
+                    }
+                }
+            });
+
+            $listen = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
+            $count  = intval(Env::get('PRP_HTTP_COUNT', 4)) ?? 4;
+            $this->manager->addWorker(new Worker($listen, $count));
+            $this->manager->run();
+        });
     }
 
     /**

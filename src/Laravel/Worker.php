@@ -34,7 +34,6 @@
 
 namespace Psc\Drive\Laravel;
 
-use Illuminate\Container\Container;
 use Illuminate\Foundation\Application;
 use JetBrains\PhpStorm\NoReturn;
 use P\IO;
@@ -48,7 +47,6 @@ use Psc\Utils\Output;
 use Psc\Worker\Command;
 use Psc\Worker\Manager;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-
 use function base_path;
 use function cli_set_process_title;
 use function fopen;
@@ -57,7 +55,6 @@ use function P\cancelAll;
 use function posix_getppid;
 use function sprintf;
 use function stream_context_create;
-
 use const STDOUT;
 
 /**
@@ -75,7 +72,8 @@ class Worker extends \Psc\Worker\Worker
     public function __construct(
         private readonly string $address = 'http://127.0.0.1:8008',
         private readonly int    $count = 4
-    ) {
+    )
+    {
     }
 
     /**
@@ -92,7 +90,6 @@ class Worker extends \Psc\Worker\Worker
     public function register(Manager $manager): void
     {
         cli_set_process_title('laravel-guard');
-        Container::getInstance()->instance(Worker::class, $manager);
 
         $context          = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->httpServer = Net::Http()->server($this->address, $context);
@@ -102,17 +99,17 @@ class Worker extends \Psc\Worker\Worker
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
         $monitor          = IO::File()->watch(base_path(), 'php');
-        $monitor->onTouch = static function (string $file) use ($manager) {
+        $monitor->onTouch = function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} touched");
         };
 
-        $monitor->onModify = static function (string $file) use ($manager) {
+        $monitor->onModify = function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} modify");
         };
 
-        $monitor->onRemove = static function (string $file) use ($manager) {
+        $monitor->onRemove = function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} remove");
         };
@@ -132,6 +129,7 @@ class Worker extends \Psc\Worker\Worker
          * @var Application $application
          */
         $application = include base_path('/bootstrap/app.php');
+        $application->bind(Worker::class, fn() => $this);
 
         /**
          * @param Request  $request

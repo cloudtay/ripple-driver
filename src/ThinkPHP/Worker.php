@@ -41,13 +41,11 @@ use Psc\Core\Http\Server\HttpServer;
 use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Response;
 use Psc\Drive\Utils\Console;
-use Psc\Std\Stream\Exception\ConnectionException;
 use Psc\Utils\Output;
 use Psc\Worker\Command;
 use Psc\Worker\Manager;
 use think\App;
 use think\response\File;
-
 use function app;
 use function cli_set_process_title;
 use function fwrite;
@@ -56,7 +54,6 @@ use function posix_getppid;
 use function root_path;
 use function sprintf;
 use function stream_context_create;
-
 use const STDOUT;
 
 /**
@@ -74,7 +71,8 @@ class Worker extends \Psc\Worker\Worker
     public function __construct(
         private readonly string $address = 'http://127.0.0.1:8008',
         private readonly int    $count = 4
-    ) {
+    )
+    {
     }
 
     /**
@@ -101,17 +99,17 @@ class Worker extends \Psc\Worker\Worker
         fwrite(STDOUT, $this->formatRow(["- Logs"], 'thread'));
 
         $monitor          = IO::File()->watch(root_path(), 'php');
-        $monitor->onTouch = static function (string $file) use ($manager) {
+        $monitor->onTouch = function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} touched");
         };
 
-        $monitor->onModify = static function (string $file) use ($manager) {
+        $monitor->onModify = function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} modify");
         };
 
-        $monitor->onRemove = static function (string $file) use ($manager) {
+        $monitor->onRemove = function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} remove");
         };
@@ -127,18 +125,13 @@ class Worker extends \Psc\Worker\Worker
         fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getppid()));
         cli_set_process_title('think-worker');
 
-        /**
-         * @param Request  $request
-         * @param Response $response
-         * @return void
-         * @throws ConnectionException
-         */
+        $app = new App();
+        $app->bind(Worker::class, fn() => $this);
+
         $this->httpServer->onRequest(static function (
             Request  $request,
             Response $response
-        ) {
-            $app  = new App();
-            $http = $app->http;
+        ) use ($app) {
 
             $thinkRequest = new \think\Request();
             $thinkRequest->setUrl($request->getUri());
@@ -152,7 +145,7 @@ class Worker extends \Psc\Worker\Worker
             $thinkRequest->withGet($request->query->all());
             $thinkRequest->withInput($request->getContent());
 
-            $thinkResponse = $http->run($thinkRequest);
+            $thinkResponse = $app->http->run($thinkRequest);
 
             $response->setStatusCode($thinkResponse->getCode());
             $response->headers->add($thinkResponse->getHeader());

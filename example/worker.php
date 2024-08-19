@@ -33,53 +33,81 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-use Psc\Drive\Worker\Command;
-use Psc\Drive\Worker\Manager;
-
-use function P\delay;
-use function P\tick;
+use P\Net;
+use Psc\Core\WebSocket\Server\Connection;
+use Psc\Core\WebSocket\Server\Server;
+use Psc\Worker\Command;
+use Psc\Worker\Manager;
 
 include __DIR__ . '/../vendor/autoload.php';
 
-$manager = new Manager();
-$manager->addWorker(new class () extends \Psc\Drive\Worker\Worker {
+
+class WsServer extends \Psc\Worker\Worker
+{
+    /**
+     * @var Server
+     */
+    private Server $wsServer;
+
+    /**
+     * @var array
+     */
+    private array $connections = [];
+
+    /**
+     * @Author cclilshy
+     * @Date   2024/8/19 17:24
+     * @param Manager $manager
+     * @return void
+     */
     public function register(Manager $manager): void
     {
-    }
-
-    public function getName(): string
-    {
-        return 'test';
-    }
-
-    public function getCount(): int
-    {
-        return 2;
-    }
-
-    public function boot(): void
-    {
-        delay(function () {
-            $this->commandToWorker(Command::make('debug', []), $this->getName());
-        }, 1);
-    }
-
-    public function onCommand(Command $workerCommand): void
-    {
-        \var_dump($workerCommand);
+        $this->wsServer = Net::WebSocket()->server('ws://127.0.0.1:8001', []);
     }
 
     /**
      * @Author cclilshy
-     * @Date   2024/8/17 02:00
+     * @Date   2024/8/19 17:26
      * @return void
      */
+    public function boot(): void
+    {
+        $this->wsServer->onMessage(function (string $content, Connection $connection) {
+            $connection->send("response > {$content}");
+        });
+
+        $this->wsServer->onConnect(function (Connection $connection) {
+            $this->connections[$connection->getId()] = $connection;
+        });
+
+        $this->wsServer->onClose(function (Connection $connection) {
+            unset($this->connections[$connection->getId()]);
+        });
+
+        $this->wsServer->listen();
+    }
+
+    public function onCommand(Command $workerCommand): void
+    {
+        if ($workerCommand->name === 'sendMessageToAll') {
+            foreach ($this->connections as $connection) {
+                $connection->send($workerCommand->arguments['message']);
+            }
+        }
+    }
+
+    public function getName(): string
+    {
+        return 'ws-server';
+    }
+
+    public function getCount(): int
+    {
+        return 1;
+    }
+
     public function onReload(): void
     {
-
+        // TODO: Implement onReload() method.
     }
-});
-
-$manager->run();
-
-tick();
+}
