@@ -52,7 +52,7 @@ use function cli_set_process_title;
 use function fopen;
 use function fwrite;
 use function P\cancelAll;
-use function posix_getppid;
+use function posix_getpid;
 use function sprintf;
 use function stream_context_create;
 use const STDOUT;
@@ -122,7 +122,7 @@ class Worker extends \Psc\Worker\Worker
      */
     public function boot(): void
     {
-        fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getppid()));
+        fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getpid()));
         cli_set_process_title('laravel-worker');
 
         /**
