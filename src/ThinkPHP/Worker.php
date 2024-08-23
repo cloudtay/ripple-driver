@@ -50,7 +50,7 @@ use function app;
 use function cli_set_process_title;
 use function fwrite;
 use function P\cancelAll;
-use function posix_getppid;
+use function posix_getpid;
 use function root_path;
 use function sprintf;
 use function stream_context_create;
@@ -122,7 +122,7 @@ class Worker extends \Psc\Worker\Worker
      */
     public function boot(): void
     {
-        fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getppid()));
+        fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getpid()));
         cli_set_process_title('think-worker');
 
         $app = new App();
