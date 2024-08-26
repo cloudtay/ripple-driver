@@ -115,8 +115,8 @@ class PDrive extends Command
                         runtime_path('log') . 'prp.log'
                     );
                     shell_exec($command);
+                    \Psc\Utils\Output::writeln('server started');
                 }
-                \Psc\Utils\Output::writeln('server started');
                 exit(0);
             case 'stop':
                 if (!file_exists($this->controlPipePath)) {
@@ -158,6 +158,7 @@ class PDrive extends Command
         onSignal(SIGINT, fn () => $this->stop());
         onSignal(SIGTERM, fn () => $this->stop());
         onSignal(SIGQUIT, fn () => $this->stop());
+
         \P\defer(function () {
             if (!file_exists($this->controlPipePath)) {
                 posix_mkfifo($this->controlPipePath, 0600);

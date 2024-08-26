@@ -134,8 +134,8 @@ class PDrive extends Command
                         storage_path('logs/prp.log')
                     );
                     shell_exec($command);
+                    Output::writeln('server started');
                 }
-                Output::writeln('server started');
                 exit(0);
             case 'stop':
                 if (!file_exists($this->controlPipePath)) {
@@ -177,11 +177,11 @@ class PDrive extends Command
         onSignal(SIGINT, fn () => $this->stop());
         onSignal(SIGTERM, fn () => $this->stop());
         onSignal(SIGQUIT, fn () => $this->stop());
-
         \P\defer(function () {
             if (!file_exists($this->controlPipePath)) {
                 posix_mkfifo($this->controlPipePath, 0600);
             }
+
             $zx7e          = new Zx7e();
             $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
             $controlStream->setBlocking(false);
