@@ -53,3 +53,7 @@ composer require cclilshy/p-ripple-core
 ### 联系方式
 
 联系方式： jingnigg@gmail.com
+
+| 群聊直通车                                                                                                               | 作者微信(邀请入群)                                                                                                                |
+|---------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| <img src="https://cdn.learnku.com/uploads/images/202408/26/114411/Dwy8v4gzjL.jpg!large" width="200" height="200" /> | <img src="https://cdn.learnku.com/uploads/images/202408/26/114411/h2nOpetJb0.jpg!large" width="200" height="200" /> |
