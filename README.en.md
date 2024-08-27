@@ -3,9 +3,9 @@
 </p>
 <p align="center">
 <a href="#"><img src="https://img.shields.io/badge/PHP-%3E%3D%208.3-blue" alt="Build Status"></a>
-<a href="https://packagist.org/packages/cclilshy/p-ripple-core"><img src="https://img.shields.io/packagist/dt/cclilshy/p-ripple-core" alt="Download statistics"></a>
-<a href="https://packagist.org/packages/cclilshy/p-ripple-core"><img src="https://img.shields.io/packagist/v/cclilshy/p-ripple-core" alt="Stable version"></a>
-<a href="https://packagist.org/packages/cclilshy/p-ripple-core"><img src="https://img.shields.io/packagist/l/cclilshy/p-ripple-core" alt="License"></a>
+<a href="https://packagist.org/packages/cclilshy/p-ripple-core"><img src="https://img.shields.io/packagist/dt/cclilshy/p-ripple-core " alt="Download statistics"></a>
+<a href="https://packagist.org/packages/cclilshy/p-ripple-core"><img src="https://img.shields.io/packagist/v/cclilshy/p-ripple-core " alt="Stable version"></a>
+<a href="https://packagist.org/packages/cclilshy/p-ripple-core"><img src="https://img.shields.io/packagist/l/cclilshy/p-ripple-core " alt="License"></a>
 </p>
 <p>
 PRipple is a modern, high-performance native PHP coroutine framework designed to solve PHP's challenges in high concurrency, complex network communication and data operations.
@@ -22,35 +22,39 @@ By using PRipple, you will experience the advantages of managing tasks from a gl
 ### Install
 
 ````bash
-composer require cclilshy/p-ripple-core
+composer require cclilshy/p-ripple-drive
 ````
 
 ### Start learning
 
 You can visit PRipple’s [Documentation](https://p-ripple.cloudtay.com/) to start reading
 
-We recommend you start with [Manual Installation](https://p-ripple.cloudtay.com/docs/install/professional)
-Better understand PRipple’s workflow
+We recommend that you start with [Manual Installation](https://p-ripple.cloudtay.com/docs/install/professional) to
+better understand PRipple’s workflow
 
 If you want to quickly deploy and use PRipple's services, you can directly
 visit [Quick Deployment](https://p-ripple.cloudtay.com/docs/install/server)
 
 ### Related projects
 
-- RevoltPHP: [https://revolt.run/](https://revolt.run/)
-- Workerman/Webman：[https://www.workerman.net/](https://www.workerman.net/)
-- Laravel: [https://laravel.com/](https://laravel.com/)
-- ThinkPHP：[https://www.thinkphp.cn/](https://www.thinkphp.cn/)
-- Symfony: [https://symfony.com/](https://symfony.com/)
-- PHP: [https://www.php.net/](https://www.php.net/)
-- JavaScript: [https://www.javascript.com/](https://www.javascript.com/)
+- `RevoltPHP`[https://revolt.run/](https://revolt.run/)
+- `Workerman/Webman`[https://www.workerman.net/](https://www.workerman.net/)
+- `Laravel`[https://laravel.com/](https://laravel.com/)
+- `ThinkPHP`[https://www.thinkphp.cn/](https://www.thinkphp.cn/)
+- `Symfony`[https://symfony.com/](https://symfony.com/)
+- `PHP`[https://www.php.net/](https://www.php.net/)
+- `JavaScript`[https://www.javascript.com/](https://www.javascript.com/)
 
-### Acknowledgments
+### Thanks
 
-- Jetbrains: [https://www.jetbrains.com/](https://www.jetbrains.com/)
-- OpenAI: [https://www.openai.com/](https://www.openai.com/)
-- W3C: [https://www.w3.org/](https://www.w3.org/)
+<a href="https://www.jetbrains.com/?from=p-ripple-core" target="__blank">
+    <img src="https://www.jetbrains.com/company/brand/img/jetbrains_logo.png" width="200">
+</a>
+
+[Jetbrains](https://www.jetbrains.com/?from=p-ripple-core) Free development tools are provided for this project
 
 ### Contact information
 
-Contact information: jingnigg@gmail.com
+`Email` jingnigg@gmail.com
+
+`WeChat` jingnigg

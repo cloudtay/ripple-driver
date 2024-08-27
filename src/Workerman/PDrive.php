@@ -45,58 +45,66 @@ use Workerman\Worker;
 
 use function call_user_func;
 use function call_user_func_array;
+use function chr;
 use function count;
 use function explode;
 use function function_exists;
 use function get_resource_id;
+use function intval;
 use function is_array;
 use function is_string;
+use function ord;
 use function P\cancel;
 use function P\cancelAll;
 use function P\delay;
 use function P\onSignal;
 use function P\repeat;
-use function P\run;
+use function P\tick;
 use function posix_getpid;
+use function pow;
 use function str_contains;
+use function strlen;
 
 class PDrive implements EventInterface
 {
     /**
      * @var array
      */
-    protected array $_timer = array();
+    protected array $_timer = [];
 
     /**
      * @var array
      */
-    protected array $_fd2ids = array();
+    protected array $_fd2ids = [];
 
     /**
      * @var array
      */
-    protected array $_signal2ids = array();
+    protected array $_signal2ids = [];
 
     /**
-     * @param       $fd
-     * @param       $flag
-     * @param       $func
-     * @param array $args
+     * @param       $fd   //callback
+     * @param       $flag //类型
+     * @param       $func //回调
+     * @param array $args //参数列表
      * @return bool|string|void
      */
-    public function add($fd, $flag, $func, $args = array())
+    public function add($fd, $flag, $func, $args = [])
     {
         switch ($flag) {
             case EventInterface::EV_SIGNAL:
                 try {
+                    // 兼容 Workerman 的信号处理
                     if ($func instanceof Closure) {
                         $closure = fn () => $func($fd);
                     }
 
+                    // 兼容 Workerman 数组Callback方式
                     if (is_array($func)) {
                         $closure = fn () => call_user_func($func, $fd);
                     }
 
+                    // 兼容 Workerman 字符串Callback方式
                     if (is_string($func)) {
                         if (str_contains($func, '::')) {
                             $explode = explode('::', $func);
@@ -108,16 +116,21 @@ class PDrive implements EventInterface
                         }
                     }
 
+                    // 未找到回调
                     if (!isset($closure)) {
                         return false;
                     }
-                    $this->_signal2ids[$fd] = $id = onSignal($fd, $closure);
-                    return $id;
+
+                    // 注册信号处理器
+                    $id                     = onSignal($fd, $closure);
+                    $this->_signal2ids[$fd] = $this->string2int($id);
+                    return $this->string2int($id);
                 } catch (Throwable) {
                     return false;
                 }
 
             case EventInterface::EV_TIMER:
+                // 定时器
                 $this->_timer[] = $timerId = repeat(function () use ($func, $args) {
                     try {
                         call_user_func_array($func, $args);
@@ -125,9 +138,11 @@ class PDrive implements EventInterface
                         Worker::stopAll(250, $e);
                     }
                 }, $fd);
-                return $timerId;
+
+                return $this->string2int($timerId);
 
             case EventInterface::EV_TIMER_ONCE:
+                // 一次性定时器
                 $this->_timer[] = $timerId = delay(function () use ($func, $args) {
                     try {
                         call_user_func_array($func, $args);
@@ -136,25 +151,33 @@ class PDrive implements EventInterface
                     }
                 }, $fd);
 
-                return $timerId;
+                return $this->string2int($timerId);
 
             case EventInterface::EV_READ:
-                $stream                       = new Stream($fd);
-                $this->_fd2ids[$stream->id][] = $eventId = $stream->onReadable(function (Stream $stream) use ($func) {
+                // 读事件
+                $stream  = new Stream($fd);
+                $eventId = $stream->onReadable(function (Stream $stream) use ($func) {
                     $func($stream->stream);
                 });
-                return $eventId;
+
+                $this->_fd2ids[$stream->id][] = $this->string2int($eventId);
+                return $this->string2int($eventId);
 
             case EventInterface::EV_WRITE:
-                $stream                       = new Stream($fd);
-                $this->_fd2ids[$stream->id][] = $eventId = $stream->onWritable(function (Stream $stream) use ($func) {
+                // 写事件
+                $stream  = new Stream($fd);
+                $eventId = $stream->onWritable(function (Stream $stream) use ($func) {
                     $func($stream->stream);
                 });
-                return $eventId;
+
+                $this->_fd2ids[$stream->id][] = $this->string2int($eventId);
+                return $this->string2int($eventId);
         }
     }
 
     /**
+     * @Author cclilshy
+     * @Date   2024/8/27 22:00
      * @param $fd
      * @param $flag
      * @return void
@@ -162,15 +185,17 @@ class PDrive implements EventInterface
     public function del($fd, $flag): void
     {
         if ($flag === EventInterface::EV_TIMER || $flag === EventInterface::EV_TIMER_ONCE) {
-            cancel($fd);
+            // 取消定时器
+            $this->cancel($fd);
             return;
         }
 
         if ($flag === EventInterface::EV_READ || $flag === EventInterface::EV_WRITE) {
+            // 取消读写事件监听
             $streamId = get_resource_id($fd);
             if (isset($this->_fd2ids[$streamId])) {
                 foreach ($this->_fd2ids[$streamId] as $id) {
-                    cancel($id);
+                    $this->cancel($id);
                 }
                 unset($this->_fd2ids[$streamId]);
             }
@@ -178,9 +203,10 @@ class PDrive implements EventInterface
         }
 
         if ($flag === EventInterface::EV_SIGNAL) {
+            // 取消信号监听
             $signalId = $this->_signal2ids[$fd] ?? null;
             if ($signalId) {
-                cancel($signalId);
+                $this->cancel($signalId);
                 unset($this->_signal2ids[$fd]);
             }
         }
@@ -191,8 +217,9 @@ class PDrive implements EventInterface
      */
     public function clearAllTimer(): void
     {
+        // 清除所有定时器
         foreach ($this->_timer as $timerId) {
-            cancel($timerId);
+            $this->cancel($timerId);
         }
     }
 
@@ -202,10 +229,10 @@ class PDrive implements EventInterface
      */
     public function loop(): void
     {
-        if (!isset(self::$baseProcessId)) {
-            self::$baseProcessId = posix_getpid();
-        } elseif (self::$baseProcessId !== posix_getpid()) {
-            self::$baseProcessId = posix_getpid();
+        if (!isset(PDrive::$baseProcessId)) {
+            PDrive::$baseProcessId = posix_getpid();
+        } elseif (PDrive::$baseProcessId !== posix_getpid()) {
+            PDrive::$baseProcessId = posix_getpid();
             try {
                 cancelAll();
                 System::Process()->forked();
@@ -213,7 +240,7 @@ class PDrive implements EventInterface
                 Output::error($e->getMessage());
             }
         }
-        run();
+        tick();
     }
 
     /**
@@ -236,4 +263,47 @@ class PDrive implements EventInterface
      * @var int
      */
     private static int $baseProcessId;
+
+    /**
+     * @Author cclilshy
+     * @Date   2024/8/27 21:57
+     * @param string $string
+     * @return int
+     */
+    private function string2int(string $string): int
+    {
+        $len = strlen($string);
+        $sum = 0;
+        for ($i = 0; $i < $len; $i++) {
+            $sum += (ord($string[$i]) - 96) * pow(26, $len - $i - 1);
+        }
+        return $sum;
+    }
+
+    /**
+     * @Author cclilshy
+     * @Date   2024/8/27 21:57
+     * @param int $int
+     * @return string
+     */
+    private function int2string(int $int): string
+    {
+        $string = '';
+        while ($int > 0) {
+            $string = chr(($int - 1) % 26 + 97) . $string;
+            $int    = intval(($int - 1) / 26);
+        }
+        return $string;
+    }
+
+    /**
+     * @Author cclilshy
+     * @Date   2024/8/27 22:01
+     * @param int $id
+     * @return void
+     */
+    private function cancel(int $id): void
+    {
+        cancel($this->int2string($id));
+    }
 }

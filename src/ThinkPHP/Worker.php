@@ -46,14 +46,18 @@ use Psc\Worker\Command;
 use Psc\Worker\Manager;
 use think\App;
 use think\response\File;
+
 use function app;
 use function cli_set_process_title;
 use function fwrite;
 use function P\cancelAll;
-use function posix_getppid;
+use function posix_getpid;
 use function root_path;
 use function sprintf;
 use function stream_context_create;
+
+use function file_exists;
+
 use const STDOUT;
 
 /**
@@ -71,8 +75,7 @@ class Worker extends \Psc\Worker\Worker
     public function __construct(
         private readonly string $address = 'http://127.0.0.1:8008',
         private readonly int    $count = 4
-    )
-    {
+    ) {
     }
 
     /**
@@ -89,16 +92,25 @@ class Worker extends \Psc\Worker\Worker
     public function register(Manager $manager): void
     {
         cli_set_process_title('think-guard');
-        app()->bind(Worker::class, $manager);
+        app()->bind(Worker::class, fn () => $this);
 
         $context          = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->httpServer = Net::Http()->server($this->address, $context);
-        fwrite(STDOUT, $this->formatRow(['Worker', $this->getName()], 'info'));
-        fwrite(STDOUT, $this->formatRow(['Listen', $this->address], 'info'));
-        fwrite(STDOUT, $this->formatRow(["Workers", $this->count], 'info'));
-        fwrite(STDOUT, $this->formatRow(["- Logs"], 'thread'));
+        fwrite(STDOUT, $this->formatRow(['Worker', $this->getName()]));
+        fwrite(STDOUT, $this->formatRow(['Listen', $this->address]));
+        fwrite(STDOUT, $this->formatRow(["Workers", $this->count]));
+        fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
-        $monitor          = IO::File()->watch(root_path(), 'php');
+        $monitor = IO::File()->watch();
+        $monitor->add(root_path() . '/app');
+        $monitor->add(root_path() . '/config');
+        $monitor->add(root_path() . '/extend');
+        $monitor->add(root_path() . '/route');
+        $monitor->add(root_path() . '/view');
+        if (file_exists(root_path() . '/.env')) {
+            $monitor->add(root_path() . '/.env');
+        }
+
         $monitor->onTouch = function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} touched");
@@ -113,6 +125,7 @@ class Worker extends \Psc\Worker\Worker
             $manager->reload($this->getName());
             Output::writeln("File {$file} remove");
         };
+        $monitor->run();
     }
 
     /**
@@ -122,11 +135,11 @@ class Worker extends \Psc\Worker\Worker
      */
     public function boot(): void
     {
-        fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getppid()));
+        fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getpid()));
         cli_set_process_title('think-worker');
 
         $app = new App();
-        $app->bind(Worker::class, fn() => $this);
+        $app->bind(Worker::class, fn () => $this);
 
         $this->httpServer->onRequest(static function (
             Request  $request,
@@ -204,5 +217,6 @@ class Worker extends \Psc\Worker\Worker
     #[NoReturn] public function onReload(): void
     {
         cancelAll();
+        exit(0);
     }
 }

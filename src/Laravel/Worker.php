@@ -47,14 +47,17 @@ use Psc\Utils\Output;
 use Psc\Worker\Command;
 use Psc\Worker\Manager;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+
 use function base_path;
 use function cli_set_process_title;
 use function fopen;
 use function fwrite;
 use function P\cancelAll;
-use function posix_getppid;
+use function posix_getpid;
 use function sprintf;
 use function stream_context_create;
+use function file_exists;
+
 use const STDOUT;
 
 /**
@@ -72,8 +75,7 @@ class Worker extends \Psc\Worker\Worker
     public function __construct(
         private readonly string $address = 'http://127.0.0.1:8008',
         private readonly int    $count = 4
-    )
-    {
+    ) {
     }
 
     /**
@@ -98,7 +100,17 @@ class Worker extends \Psc\Worker\Worker
         fwrite(STDOUT, $this->formatRow(["Workers", $this->count]));
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
-        $monitor          = IO::File()->watch(base_path(), 'php');
+        $monitor = IO::File()->watch();
+        $monitor->add(base_path('app'));
+        $monitor->add(base_path('bootstrap'));
+        $monitor->add(base_path('config'));
+        $monitor->add(base_path('database'));
+        $monitor->add(base_path('routes'));
+        $monitor->add(base_path('resources'));
+        if (file_exists(base_path('.env'))) {
+            $monitor->add(base_path('.env'));
+        }
+
         $monitor->onTouch = function (string $file) use ($manager) {
             $manager->reload($this->getName());
             Output::writeln("File {$file} touched");
@@ -113,6 +125,8 @@ class Worker extends \Psc\Worker\Worker
             $manager->reload($this->getName());
             Output::writeln("File {$file} remove");
         };
+
+        $monitor->run();
     }
 
     /**
@@ -122,14 +136,14 @@ class Worker extends \Psc\Worker\Worker
      */
     public function boot(): void
     {
-        fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getppid()));
+        fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getpid()));
         cli_set_process_title('laravel-worker');
 
         /**
          * @var Application $application
          */
         $application = include base_path('/bootstrap/app.php');
-        $application->bind(Worker::class, fn() => $this);
+        $application->bind(Worker::class, fn () => $this);
 
         /**
          * @param Request  $request
@@ -208,5 +222,6 @@ class Worker extends \Psc\Worker\Worker
     #[NoReturn] public function onReload(): void
     {
         cancelAll();
+        exit(0);
     }
 }

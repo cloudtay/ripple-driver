@@ -22,34 +22,42 @@ PRipple是一个现代化的、高性能的原生PHP协程框架，旨在解决P
 ### 安装
 
 ````bash
-composer require cclilshy/p-ripple-core
+composer require cclilshy/p-ripple-drive
 ````
 
 ### 开始学习
 
 你可以访问PRipple的[文档](https://p-ripple.cloudtay.com/)开始阅读
 
-我们建议你从[手动安装](https://p-ripple.cloudtay.com/docs/install/professional)开始
-更好地理解PRipple的工作流程
+我们建议你从[手动安装](https://p-ripple.cloudtay.com/docs/install/professional)开始, 便于更好地理解PRipple的工作流程
 
 如果你想快速部署并使用PRipple的服务，你可以直接访问[快速部署](https://p-ripple.cloudtay.com/docs/install/server)
 
 ### 相关项目
 
-- RevoltPHP：[https://revolt.run/](https://revolt.run/)
-- Workerman/Webman：[https://www.workerman.net/](https://www.workerman.net/)
-- Laravel：[https://laravel.com/](https://laravel.com/)
-- ThinkPHP：[https://www.thinkphp.cn/](https://www.thinkphp.cn/)
-- Symfony：[https://symfony.com/](https://symfony.com/)
-- PHP：[https://www.php.net/](https://www.php.net/)
-- JavaScript：[https://www.javascript.com/](https://www.javascript.com/)
+- `RevoltPHP`[https://revolt.run/](https://revolt.run/)
+- `Workerman/Webman`[https://www.workerman.net/](https://www.workerman.net/)
+- `Laravel`[https://laravel.com/](https://laravel.com/)
+- `ThinkPHP`[https://www.thinkphp.cn/](https://www.thinkphp.cn/)
+- `Symfony`[https://symfony.com/](https://symfony.com/)
+- `PHP`[https://www.php.net/](https://www.php.net/)
+- `JavaScript`[https://www.javascript.com/](https://www.javascript.com/)
 
-### 致谢
+### 特别致谢
 
-- Jetbrains：[https://www.jetbrains.com/](https://www.jetbrains.com/)
-- OpenAI：[https://www.openai.com/](https://www.openai.com/)
-- W3C：[https://www.w3.org/](https://www.w3.org/)
+<a href="https://www.jetbrains.com/?from=p-ripple-core" target="__blank">
+    <img src="https://www.jetbrains.com/company/brand/img/jetbrains_logo.png" width="200">
+</a>
+
+[Jetbrains](https://www.jetbrains.com/?from=p-ripple-core) 为本项目提供了免费的开发工具
 
 ### 联系方式
 
-联系方式： jingnigg@gmail.com
+`电邮` jingnigg@gmail.com
+
+`微信` jingnigg
+
+| 群聊直通车                                                                                                               | 作者微信(邀请入群)                                                                                                          |
+|---------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| <img src="https://cdn.learnku.com/uploads/images/202408/26/114411/Dwy8v4gzjL.jpg!large" width="200" height="200" /> | <img src="https://cdn.learnku.com/uploads/images/202408/26/114411/h2nOpetJb0.jpg!large" width="200" height="200" /> |
+
