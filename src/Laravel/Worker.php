@@ -34,31 +34,37 @@
 
 namespace Psc\Drive\Laravel;
 
+use Co\IO;
+use Co\Net;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Event;
 use JetBrains\PhpStorm\NoReturn;
-use P\IO;
-use P\Net;
 use Psc\Core\Http\Server\HttpServer;
 use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Response;
+use Psc\Core\Stream\Exception\ConnectionException;
 use Psc\Drive\Utils\Console;
-use Psc\Std\Stream\Exception\ConnectionException;
 use Psc\Utils\Output;
 use Psc\Worker\Command;
 use Psc\Worker\Manager;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 use function base_path;
 use function cli_set_process_title;
+use function Co\cancelAll;
+use function file_exists;
 use function fopen;
 use function fwrite;
-use function P\cancelAll;
 use function posix_getpid;
 use function sprintf;
 use function stream_context_create;
-use function file_exists;
+use function getmypid;
+use function in_array;
 
 use const STDOUT;
+use const PHP_OS_FAMILY;
 
 /**
  * @Author cclilshy
@@ -88,6 +94,7 @@ class Worker extends \Psc\Worker\Worker
      * @Date   2024/8/16 23:34
      * @param Manager $manager
      * @return void
+     * @throws Throwable
      */
     public function register(Manager $manager): void
     {
@@ -100,33 +107,35 @@ class Worker extends \Psc\Worker\Worker
         fwrite(STDOUT, $this->formatRow(["Workers", $this->count]));
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
-        $monitor = IO::File()->watch();
-        $monitor->add(base_path('app'));
-        $monitor->add(base_path('bootstrap'));
-        $monitor->add(base_path('config'));
-        $monitor->add(base_path('database'));
-        $monitor->add(base_path('routes'));
-        $monitor->add(base_path('resources'));
-        if (file_exists(base_path('.env'))) {
-            $monitor->add(base_path('.env'));
+        if (in_array(Env::get('PHP_HOT_RELOAD'), ['true', '1', 'on',true,1], true)) {
+            $monitor = IO::File()->watch();
+            $monitor->add(base_path('app'));
+            $monitor->add(base_path('bootstrap'));
+            $monitor->add(base_path('config'));
+            $monitor->add(base_path('database'));
+            $monitor->add(base_path('routes'));
+            $monitor->add(base_path('resources'));
+            if (file_exists(base_path('.env'))) {
+                $monitor->add(base_path('.env'));
+            }
+
+            $monitor->onTouch = function (string $file) use ($manager) {
+                $manager->reload($this->getName());
+                Output::writeln("File {$file} touched");
+            };
+
+            $monitor->onModify = function (string $file) use ($manager) {
+                $manager->reload($this->getName());
+                Output::writeln("File {$file} modify");
+            };
+
+            $monitor->onRemove = function (string $file) use ($manager) {
+                $manager->reload($this->getName());
+                Output::writeln("File {$file} remove");
+            };
+
+            $monitor->run();
         }
-
-        $monitor->onTouch = function (string $file) use ($manager) {
-            $manager->reload($this->getName());
-            Output::writeln("File {$file} touched");
-        };
-
-        $monitor->onModify = function (string $file) use ($manager) {
-            $manager->reload($this->getName());
-            Output::writeln("File {$file} modify");
-        };
-
-        $monitor->onRemove = function (string $file) use ($manager) {
-            $manager->reload($this->getName());
-            Output::writeln("File {$file} remove");
-        };
-
-        $monitor->run();
     }
 
     /**
@@ -136,7 +145,12 @@ class Worker extends \Psc\Worker\Worker
      */
     public function boot(): void
     {
-        fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getpid()));
+        fwrite(STDOUT, sprintf(
+            "Worker %s@%d started.\n",
+            $this->getName(),
+            PHP_OS_FAMILY === 'Windows' ? getmypid() : posix_getpid()
+        ));
+
         cli_set_process_title('laravel-worker');
 
         /**

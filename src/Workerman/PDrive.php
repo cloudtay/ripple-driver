@@ -35,7 +35,7 @@
 namespace Psc\Drive\Workerman;
 
 use Closure;
-use P\System;
+use Co\System;
 use Psc\Core\Stream\Stream;
 use Psc\Utils\Output;
 use Revolt\EventLoop\UnsupportedFeatureException;
@@ -46,6 +46,12 @@ use Workerman\Worker;
 use function call_user_func;
 use function call_user_func_array;
 use function chr;
+use function Co\cancel;
+use function Co\cancelAll;
+use function Co\delay;
+use function Co\onSignal;
+use function Co\repeat;
+use function Co\tick;
 use function count;
 use function explode;
 use function function_exists;
@@ -54,16 +60,14 @@ use function intval;
 use function is_array;
 use function is_string;
 use function ord;
-use function P\cancel;
-use function P\cancelAll;
-use function P\delay;
-use function P\onSignal;
-use function P\repeat;
-use function P\tick;
 use function posix_getpid;
 use function pow;
 use function str_contains;
 use function strlen;
+use function getmypid;
+use function usleep;
+
+use const PHP_OS_FAMILY;
 
 class PDrive implements EventInterface
 {
@@ -87,9 +91,9 @@ class PDrive implements EventInterface
      * @param       $flag //类型
      * @param       $func //回调
      * @param array $args //参数列表
-     * @return bool|string|void
+     * @return bool|int
      */
-    public function add($fd, $flag, $func, $args = [])
+    public function add($fd, $flag, $func, $args = []): bool|int
     {
         switch ($flag) {
             case EventInterface::EV_SIGNAL:
@@ -173,6 +177,7 @@ class PDrive implements EventInterface
                 $this->_fd2ids[$stream->id][] = $this->string2int($eventId);
                 return $this->string2int($eventId);
         }
+        return false;
     }
 
     /**
@@ -230,9 +235,9 @@ class PDrive implements EventInterface
     public function loop(): void
     {
         if (!isset(PDrive::$baseProcessId)) {
-            PDrive::$baseProcessId = posix_getpid();
-        } elseif (PDrive::$baseProcessId !== posix_getpid()) {
-            PDrive::$baseProcessId = posix_getpid();
+            PDrive::$baseProcessId = (PHP_OS_FAMILY === 'Windows' ? getmypid() : posix_getpid());
+        } elseif (PDrive::$baseProcessId !== (PHP_OS_FAMILY === 'Windows' ? getmypid() : posix_getpid())) {
+            PDrive::$baseProcessId = (PHP_OS_FAMILY === 'Windows' ? getmypid() : posix_getpid());
             try {
                 cancelAll();
                 System::Process()->forked();
@@ -241,6 +246,16 @@ class PDrive implements EventInterface
             }
         }
         tick();
+
+        /**
+         * 不会再有任何事发生
+         *
+         * Workerman会将结束的进程视为异常然后重启, 循环往复
+         */
+        while (1) {
+            tick();
+            usleep(1);
+        }
     }
 
     /**
