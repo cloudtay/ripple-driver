@@ -36,8 +36,8 @@ namespace Psc\Drive\Laravel;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Env;
+use Psc\Core\Stream\Exception\ConnectionException;
 use Psc\Core\Stream\Stream;
-use Psc\Std\Stream\Exception\ConnectionException;
 use Psc\Utils\Output;
 use Psc\Utils\Serialization\Zx7e;
 use Psc\Worker\Manager;
@@ -47,23 +47,25 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 use function app;
 use function base_path;
+use function Co\cancelAll;
+use function Co\onSignal;
+use function Co\tick;
 use function file_exists;
 use function fopen;
 use function intval;
 use function json_decode;
-use function P\cancelAll;
-use function P\onSignal;
-use function P\tick;
 use function posix_mkfifo;
 use function shell_exec;
 use function sprintf;
 use function storage_path;
 use function unlink;
+use function touch;
 
 use const PHP_BINARY;
 use const SIGINT;
 use const SIGQUIT;
 use const SIGTERM;
+use const PHP_OS_FAMILY;
 
 /**
  * @Author cclilshy
@@ -106,7 +108,7 @@ class PDrive extends Command
     {
         parent::initialize($input, $output);
         $this->manager         = app(Manager::class);
-        $this->controlPipePath = __DIR__ . '/control.pipe';
+        $this->controlPipePath = storage_path('control.pipe');
     }
 
     /**
@@ -174,40 +176,51 @@ class PDrive extends Command
      */
     private function start(): void
     {
-        onSignal(SIGINT, fn () => $this->stop());
-        onSignal(SIGTERM, fn () => $this->stop());
-        onSignal(SIGQUIT, fn () => $this->stop());
-        \P\defer(function () {
-            if (!file_exists($this->controlPipePath)) {
+        /**
+         * @compatible:Windows
+         */
+        if (PHP_OS_FAMILY !== 'Windows') {
+            onSignal(SIGINT, fn () => $this->stop());
+            onSignal(SIGTERM, fn () => $this->stop());
+            onSignal(SIGQUIT, fn () => $this->stop());
+        }
+
+        if (!file_exists($this->controlPipePath)) {
+            /**
+             * @compatible:Windows
+             */
+            if (PHP_OS_FAMILY === 'Windows') {
+                touch($this->controlPipePath);
+            } else {
                 posix_mkfifo($this->controlPipePath, 0600);
             }
+        }
 
-            $zx7e          = new Zx7e();
-            $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
-            $controlStream->setBlocking(false);
-            $controlStream->onReadable(function (Stream $controlStream) use ($zx7e) {
-                $content = $controlStream->read(1024);
-                foreach ($zx7e->decodeStream($content) as $command) {
-                    $command = json_decode($command, true);
-                    $action  = $command['action'];
-                    switch ($action) {
-                        case 'stop':
-                            $this->stop();
-                            break;
-                        case 'reload':
-                            $this->manager->reload();
-                            break;
-                        case 'status':
-                            break;
-                    }
+        $zx7e          = new Zx7e();
+        $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
+        $controlStream->setBlocking(false);
+        $controlStream->onReadable(function (Stream $controlStream) use ($zx7e) {
+            $content = $controlStream->read(1024);
+            foreach ($zx7e->decodeStream($content) as $command) {
+                $command = json_decode($command, true);
+                $action  = $command['action'];
+                switch ($action) {
+                    case 'stop':
+                        $this->stop();
+                        break;
+                    case 'reload':
+                        $this->manager->reload();
+                        break;
+                    case 'status':
+                        break;
                 }
-            });
-
-            $listen = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
-            $count  = intval(Env::get('PRP_HTTP_COUNT', 4)) ?? 4;
-            $this->manager->addWorker(new Worker($listen, $count));
-            $this->manager->run();
+            }
         });
+
+        $listen = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
+        $count  = intval(Env::get('PRP_HTTP_COUNT', 4)) ?? 4;
+        $this->manager->addWorker(new Worker($listen, $count));
+        $this->manager->run();
     }
 
     /**
