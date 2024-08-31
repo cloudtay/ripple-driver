@@ -39,6 +39,11 @@ use think\Request;
 
 use function app;
 
+/**
+ * @Description
+ * @Author cclilshy
+ * @Date   2024/8/31 18:01
+ */
 class IsolationMiddleware
 {
     /**
