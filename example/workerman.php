@@ -77,13 +77,15 @@ $worker->onMessage = function ($connection, $data) {
     });
 
     //使用原生guzzle实现异步请求
-    P\Net::Http()->Guzzle()->getAsync('https://www.baidu.com/')
-        ->then(function ($response) use ($connection) {
-            $connection->send("[async] Response status code: {$response->getStatusCode()}" . \PHP_EOL);
-        })
-        ->otherwise(function (Exception $e) use ($connection) {
-            $connection->send("[async] Exception: {$e->getMessage()}" . \PHP_EOL);
-        });
+    try {
+        $response = P\Plugin::Guzzle()->get('https://www.baidu.com/');
+        \var_dump($response->getStatusCode());
+        $connection->send("[async] Response status code: {$response->getStatusCode()}" . \PHP_EOL);
+    } catch (Throwable $exception) {
+        $connection->send("[async] Exception: {$exception->getMessage()}" . \PHP_EOL);
+
+    }
+
 
     $connection->send("say {$data}");
 };

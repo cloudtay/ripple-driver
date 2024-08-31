@@ -34,9 +34,9 @@
 
 namespace Psc\Drive\ThinkPHP;
 
+use Co\IO;
+use Co\Net;
 use JetBrains\PhpStorm\NoReturn;
-use P\IO;
-use P\Net;
 use Psc\Core\Http\Server\HttpServer;
 use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Response;
@@ -45,19 +45,23 @@ use Psc\Utils\Output;
 use Psc\Worker\Command;
 use Psc\Worker\Manager;
 use think\App;
+use think\facade\Env;
 use think\response\File;
+use Throwable;
 
 use function app;
 use function cli_set_process_title;
+use function Co\cancelAll;
+use function file_exists;
 use function fwrite;
-use function P\cancelAll;
+use function getmypid;
+use function in_array;
 use function posix_getpid;
 use function root_path;
 use function sprintf;
 use function stream_context_create;
 
-use function file_exists;
-
+use const PHP_OS_FAMILY;
 use const STDOUT;
 
 /**
@@ -88,6 +92,7 @@ class Worker extends \Psc\Worker\Worker
      * @Date   2024/8/16 23:34
      * @param Manager $manager
      * @return void
+     * @throws Throwable
      */
     public function register(Manager $manager): void
     {
@@ -101,31 +106,35 @@ class Worker extends \Psc\Worker\Worker
         fwrite(STDOUT, $this->formatRow(["Workers", $this->count]));
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
-        $monitor = IO::File()->watch();
-        $monitor->add(root_path() . '/app');
-        $monitor->add(root_path() . '/config');
-        $monitor->add(root_path() . '/extend');
-        $monitor->add(root_path() . '/route');
-        $monitor->add(root_path() . '/view');
-        if (file_exists(root_path() . '/.env')) {
-            $monitor->add(root_path() . '/.env');
+
+        if (in_array(Env::get('PHP_HOT_RELOAD'), ['true', '1', 'on', true, 1], true)) {
+            $monitor = IO::File()->watch();
+            $monitor->add(root_path() . '/app');
+            $monitor->add(root_path() . '/config');
+            $monitor->add(root_path() . '/extend');
+            $monitor->add(root_path() . '/route');
+            $monitor->add(root_path() . '/view');
+            if (file_exists(root_path() . '/.env')) {
+                $monitor->add(root_path() . '/.env');
+            }
+
+            $monitor->onTouch = function (string $file) use ($manager) {
+                $manager->reload($this->getName());
+                Output::writeln("File {$file} touched");
+            };
+
+            $monitor->onModify = function (string $file) use ($manager) {
+                $manager->reload($this->getName());
+                Output::writeln("File {$file} modify");
+            };
+
+            $monitor->onRemove = function (string $file) use ($manager) {
+                $manager->reload($this->getName());
+                Output::writeln("File {$file} remove");
+            };
+
+            $monitor->run();
         }
-
-        $monitor->onTouch = function (string $file) use ($manager) {
-            $manager->reload($this->getName());
-            Output::writeln("File {$file} touched");
-        };
-
-        $monitor->onModify = function (string $file) use ($manager) {
-            $manager->reload($this->getName());
-            Output::writeln("File {$file} modify");
-        };
-
-        $monitor->onRemove = function (string $file) use ($manager) {
-            $manager->reload($this->getName());
-            Output::writeln("File {$file} remove");
-        };
-        $monitor->run();
     }
 
     /**
@@ -135,7 +144,11 @@ class Worker extends \Psc\Worker\Worker
      */
     public function boot(): void
     {
-        fwrite(STDOUT, sprintf("Worker %s@%d started.\n", $this->getName(), posix_getpid()));
+        fwrite(STDOUT, sprintf(
+            "Worker %s@%d started.\n",
+            $this->getName(),
+            PHP_OS_FAMILY === 'Windows' ? getmypid() : posix_getpid()
+        ));
         cli_set_process_title('think-worker');
 
         $app = new App();
