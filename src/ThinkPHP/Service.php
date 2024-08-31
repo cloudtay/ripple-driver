@@ -63,10 +63,10 @@ class Service extends ThinkPHPService
         ]);
 
         // 配置项-安全隔离模式
-        $PRP_ISOLATION = Env::get('PRP_ISOLATION');
-        if ($this->isTrue($PRP_ISOLATION)) {
-            $this->app->middleware->add(IsolationMiddleware::class);
-        }
+        //        $PRP_ISOLATION = Env::get('PRP_ISOLATION');
+        //        if ($this->isTrue($PRP_ISOLATION)) {
+        //            $this->app->middleware->add(IsolationMiddleware::class);
+        //        }
     }
 
     /**

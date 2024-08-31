@@ -47,11 +47,13 @@ use Psc\Worker\Manager;
 use think\App;
 use think\facade\Env;
 use think\response\File;
+use think\Route;
 use Throwable;
 
 use function app;
 use function cli_set_process_title;
 use function Co\cancelAll;
+use function Co\repeat;
 use function file_exists;
 use function fwrite;
 use function getmypid;
@@ -60,6 +62,7 @@ use function posix_getpid;
 use function root_path;
 use function sprintf;
 use function stream_context_create;
+use function gc_collect_cycles;
 
 use const PHP_OS_FAMILY;
 use const STDOUT;
@@ -79,7 +82,8 @@ class Worker extends \Psc\Worker\Worker
     public function __construct(
         private readonly string $address = 'http://127.0.0.1:8008',
         private readonly int    $count = 4
-    ) {
+    )
+    {
     }
 
     /**
@@ -97,7 +101,7 @@ class Worker extends \Psc\Worker\Worker
     public function register(Manager $manager): void
     {
         cli_set_process_title('think-guard');
-        app()->bind(Worker::class, fn () => $this);
+        app()->bind(Worker::class, fn() => $this);
 
         $context          = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->httpServer = Net::Http()->server($this->address, $context);
@@ -151,8 +155,16 @@ class Worker extends \Psc\Worker\Worker
         ));
         cli_set_process_title('think-worker');
 
+        /**
+         * register loop timer
+         */
+        repeat(static function () {
+            gc_collect_cycles();
+        }, 1);
+
+
         $app = new App();
-        $app->bind(Worker::class, fn () => $this);
+        $app->bind(Worker::class, fn() => $this);
 
         $this->httpServer->onRequest(static function (
             Request  $request,
@@ -172,6 +184,7 @@ class Worker extends \Psc\Worker\Worker
             $thinkRequest->withInput($request->getContent());
 
             $thinkResponse = $app->http->run($thinkRequest);
+            $thinkRequest->delete(Route::class);
 
             $response->setStatusCode($thinkResponse->getCode());
             $response->headers->add($thinkResponse->getHeader());
