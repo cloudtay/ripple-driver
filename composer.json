@@ -4,7 +4,8 @@
   "license": "MIT",
   "autoload": {
     "psr-4": {
-      "Psc\\Drive\\": "src/"
+      "Psc\\Drive\\": "src/",
+      "Tests\\": "tests/"
     }
   },
   "authors": [
@@ -17,22 +18,23 @@
     "php": ">=8.1",
     "ext-pcntl": "*",
     "ext-posix": "*",
+    "ext-sockets": "*",
+    "ext-pdo": "*",
     "cclilshy/p-ripple-core": "dev-main",
     "amphp/mysql": "^3.0",
-    "ext-pdo": "*",
-    "workerman/workerman": "^4.1",
-    "ext-sockets": "*"
+    "workerman/workerman": "^4.1"
   },
   "require-dev": {
-    "illuminate/support": "^11.15",
-    "symfony/console": "^7.1",
-    "illuminate/http": "^11.15",
-    "illuminate/console": "^11.15",
-    "illuminate/container": "^11.15",
-    "topthink/framework": "^8.0",
-    "friendsofphp/php-cs-fixer": "^3.59",
-    "laravel/framework": "^11.16",
-    "workerman/webman-framework": "^1.5"
+    "illuminate/support": "*",
+    "symfony/console": "*",
+    "illuminate/http": "*",
+    "illuminate/console": "*",
+    "illuminate/container": "*",
+    "topthink/framework": "*",
+    "friendsofphp/php-cs-fixer": "*",
+    "laravel/framework": "*",
+    "workerman/webman-framework": "*",
+    "phpunit/phpunit": "*"
   },
   "extra": {
     "laravel": {

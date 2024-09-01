@@ -32,47 +32,48 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\ThinkPHP;
+namespace Tests;
 
-use Psc\Worker\Manager;
-use think\Service as ThinkPHPService;
+use Co\Plugin;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use Throwable;
 
-use function in_array;
+use function Co\cancelAll;
+use function Co\tick;
+use function intval;
 
-/**
- * @Author cclilshy
- * @Date   2024/8/17 18:20
- */
-class Service extends ThinkPHPService
+class HttpTest extends TestCase
 {
     /**
-     * @Author cclilshy
-     * @Date   2024/8/17 18:20
      * @return void
+     * @throws Throwable
      */
-    public function register(): void
+    #[Test]
+    public function test_http(): void
     {
-        // 注册服务管理器
-        $this->app->bind(Manager::class, fn () => new Manager());
+        $client = Plugin::Guzzle()->newClient();
 
-        // 注册终端
-        $this->commands([
-            'p:server' => PDrive::class
-        ]);
+        for ($i = 0; $i < 100; $i++) {
+            $client->get('http://127.0.0.1:8008/memory');
+        }
 
-        // 配置项-安全隔离模式
-        //        $PRP_ISOLATION = Env::get('PRP_ISOLATION');
-        //        if ($this->isTrue($PRP_ISOLATION)) {
-        //            $this->app->middleware->add(IsolationMiddleware::class);
-        //        }
-    }
+        \Co\sleep(1);
 
-    /**
-     * @param mixed $value
-     * @return bool
-     */
-    private function isTrue(mixed $value): bool
-    {
-        return in_array($value, [true, 'true', 1, '1', 'on'], true);
+        $base = intval($client->get('http://127.0.0.1:8008/memory')->getBody()->getContents());
+
+        for ($i = 0; $i < 100; $i++) {
+            $client->get('http://127.0.0.1:8008/memory');
+        }
+
+        \Co\sleep(1);
+
+        $result = intval($client->get('http://127.0.0.1:8008/memory')->getBody()->getContents());
+
+        $this->assertEquals($base, $result);
+
+        cancelAll();
+
+        tick();
     }
 }

@@ -1,0 +1,63 @@
+name: test-Laravel
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        php: [ '8.1','8.2','8.3' ]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 安装环境 (Setup PHP)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: posix, sockets, pcntl, openssl, curl, ev, fileinfo, sqlite3
+
+      - name: 安装框架 (Install Laravel)
+        run: |
+          composer install
+          composer create-project --prefer-dist laravel/laravel laravel-app
+
+      - name: 安装引擎 (Initialize PRipple)
+        working-directory: laravel-app
+        run: |
+          composer config repositories.local '{"type": "path", "url": "../"}'
+          composer require cclilshy/p-ripple-drive
+          cp -r ../src vendor/cclilshy/p-ripple-drive/
+
+      - name: 初始化测试路由 (Initialize Test Route)
+        working-directory: laravel-app
+        run: |
+          echo "PRP_HTTP_COUNT=1" >> .env
+          cp ./vendor/cclilshy/p-ripple-drive/src/Laravel/Tests/routes-test.php routes/test.php
+
+      - name: 启动引擎服务 (Start Server)
+        working-directory: laravel-app
+        run: |
+          php artisan p:server start &
+          sleep 1
+
+      - name: 压力测试 (Run Stress testing)
+        working-directory: laravel-app
+        run: |
+          ab -n 1000 -c 20 -k http://127.0.0.1:8008/
+
+      - name: 内存泄漏测试 (Run Memory leak testing)
+        run: ./vendor/bin/phpunit
+
+      - name: 关闭服务 (Stop Server)
+        working-directory: laravel-app
+        run: php artisan p:server stop
