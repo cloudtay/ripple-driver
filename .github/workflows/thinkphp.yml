@@ -10,12 +10,13 @@ on:
       - main
 
 jobs:
-  test-linux:
-    runs-on: ubuntu-latest
+  test-unix:
+    runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
-        php: [ '8.1','8.2','8.3' ]
+        os: [ ubuntu-latest, macos-latest ]
+        php: [ '8.1', '8.2', '8.3' ]
 
     steps:
       - uses: actions/checkout@v3
