@@ -32,23 +32,26 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Utils;
+namespace Psc\Drive\Laravel;
 
-use function str_pad;
+use Illuminate\Http\Request;
+use Psc\Core\Http\Server\RequestFactoryInterface;
 
-trait Console
+class RequestFactory implements RequestFactoryInterface
 {
     /**
-     * @param array $row
+     * @param array $query
+     * @param array $request
+     * @param array $attributes
+     * @param array $cookies
+     * @param array $files
+     * @param array $server
+     * @param mixed $content
      *
-     * @return string
+     * @return mixed
      */
-    private function formatRow(array $row): string
+    public function __invoke(array $query, array $request, array $attributes, array $cookies, array $files, array $server, mixed $content): mixed
     {
-        $output = '';
-        foreach ($row as $col) {
-            $output .= str_pad("{$col}", 40);
-        }
-        return $output . "\n";
+        return new Request($query, $request, $attributes, $cookies, $files, $server, $content);
     }
 }
