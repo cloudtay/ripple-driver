@@ -72,6 +72,10 @@ class Connection extends MySqlConnection
 
     /*** @var MysqlConnectionPool */
     private MysqlConnectionPool $pool;
+    /**
+     * @var MysqlTransaction[]
+     */
+    private array $fiber2transaction = [];
 
     /**
      * @param        $pdo
@@ -92,7 +96,7 @@ class Connection extends MySqlConnection
                 $key = match ($key) {
                     'username' => 'user',
                     'database' => 'db',
-                    default => $key
+                    default    => $key
                 };
 
                 $dsn .= "{$key}={$value} ";
@@ -100,6 +104,26 @@ class Connection extends MySqlConnection
         }
         $config     = MysqlConfig::fromString(trim($dsn));
         $this->pool = new MysqlConnectionPool($config);
+    }
+
+    /**
+     * @param Closure $callback
+     * @param int     $attempts
+     *
+     * @return mixed
+     * @throws Throwable
+     */
+    public function transaction(Closure $callback, $attempts = 1): mixed
+    {
+        $this->beginTransaction();
+        try {
+            $result = $callback($this->getTransaction());
+            $this->commit();
+            return $result;
+        } catch (Throwable $e) {
+            $this->rollBack();
+            throw $e;
+        }
     }
 
     /**
@@ -119,6 +143,24 @@ class Connection extends MySqlConnection
     }
 
     /**
+     * @return MysqlTransaction|null
+     */
+    private function getTransaction(): MysqlTransaction|null
+    {
+        if ($fiber = Fiber::getCurrent()) {
+            $key = spl_object_hash($fiber);
+        } else {
+            $key = 'main';
+        }
+
+        if (!$transaction = $this->fiber2transaction[$key] ?? null) {
+            return null;
+        }
+
+        return $transaction;
+    }
+
+    /**
      * @return void
      */
     public function commit(): void
@@ -133,6 +175,7 @@ class Connection extends MySqlConnection
 
     /**
      * @param $toLevel
+     *
      * @return void
      */
     public function rollBack($toLevel = null): void
@@ -146,55 +189,9 @@ class Connection extends MySqlConnection
     }
 
     /**
-     * @var MysqlTransaction[]
-     */
-    private array $fiber2transaction = [];
-
-    /**
-     * @param Closure $callback
-     * @param int     $attempts
-     * @return mixed
-     * @throws Throwable
-     */
-    public function transaction(Closure $callback, $attempts = 1): mixed
-    {
-        $this->beginTransaction();
-        try {
-            $result = $callback($this->getTransaction());
-            $this->commit();
-            return $result;
-        } catch (Throwable $e) {
-            $this->rollBack();
-            throw $e;
-        }
-    }
-
-    /**
      * @param string $query
      * @param array  $bindings
-     * @param bool   $useReadPdo
-     * @return array
-     */
-    public function select($query, $bindings = [], $useReadPdo = true): array
-    {
-        return $this->run($query, $bindings, function ($query, $bindings) use ($useReadPdo) {
-            if ($this->pretending()) {
-                return [];
-            }
-
-            $result        = [];
-            $selectRequest = $this->getPoolStatement($query)->execute($this->prepareBindings($bindings));
-            foreach ($selectRequest as $row) {
-                $result[] = $row;
-            }
-
-            return $result;
-        });
-    }
-
-    /**
-     * @param string $query
-     * @param array  $bindings
+     *
      * @return bool
      */
     public function statement($query, $bindings = []): bool
@@ -216,6 +213,7 @@ class Connection extends MySqlConnection
      * @param string $query
      * @param array  $bindings
      * @param bool   $useReadPdo
+     *
      * @return array
      */
     public function selectResultSets($query, $bindings = [], $useReadPdo = true): array
@@ -238,11 +236,22 @@ class Connection extends MySqlConnection
     }
 
     /**
+     * @param string $query
+     *
+     * @return MysqlStatement
+     */
+    private function getPoolStatement(string $query): MysqlStatement
+    {
+        return $this->getTransaction()?->prepare($query) ?? $this->pool->prepare($query);
+    }
+
+    /**
      * 针对数据库运行 select 语句并返回一个生成器。
      *
      * @param string $query
      * @param array  $bindings
      * @param bool   $useReadPdo
+     *
      * @return Generator
      */
     public function cursor($query, $bindings = [], $useReadPdo = true): Generator
@@ -253,10 +262,35 @@ class Connection extends MySqlConnection
     }
 
     /**
+     * @param string $query
+     * @param array  $bindings
+     * @param bool   $useReadPdo
+     *
+     * @return array
+     */
+    public function select($query, $bindings = [], $useReadPdo = true): array
+    {
+        return $this->run($query, $bindings, function ($query, $bindings) use ($useReadPdo) {
+            if ($this->pretending()) {
+                return [];
+            }
+
+            $result        = [];
+            $selectRequest = $this->getPoolStatement($query)->execute($this->prepareBindings($bindings));
+            foreach ($selectRequest as $row) {
+                $result[] = $row;
+            }
+
+            return $result;
+        });
+    }
+
+    /**
      * 运行 SQL 语句并获取受影响的行数。
      *
      * @param string $query
      * @param array  $bindings
+     *
      * @return int
      */
     public function affectingStatement($query, $bindings = []): int
@@ -278,15 +312,6 @@ class Connection extends MySqlConnection
     }
 
     /**
-     * @param string $query
-     * @return MysqlStatement
-     */
-    private function getPoolStatement(string $query): MysqlStatement
-    {
-        return $this->getTransaction()?->prepare($query) ?? $this->pool->prepare($query);
-    }
-
-    /**
      * @return void
      */
     public function reconnect()
@@ -300,23 +325,5 @@ class Connection extends MySqlConnection
     public function reconnectIfMissingConnection()
     {
         //TODO: 使其不作为
-    }
-
-    /**
-     * @return MysqlTransaction|null
-     */
-    private function getTransaction(): MysqlTransaction|null
-    {
-        if ($fiber = Fiber::getCurrent()) {
-            $key = spl_object_hash($fiber);
-        } else {
-            $key = 'main';
-        }
-
-        if (!$transaction = $this->fiber2transaction[$key] ?? null) {
-            return null;
-        }
-
-        return $transaction;
     }
 }

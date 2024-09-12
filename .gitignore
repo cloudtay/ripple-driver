@@ -2,6 +2,7 @@
 
 /vendor/
 p-ripple-drive.iml
+ripple-driver.iml
 
 .php-cs-fixer.cache
 

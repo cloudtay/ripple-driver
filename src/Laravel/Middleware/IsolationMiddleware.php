@@ -46,6 +46,7 @@ class IsolationMiddleware
     /**
      * @param Request $request
      * @param Closure $next
+     *
      * @return mixed
      * @throws BindingResolutionException
      */

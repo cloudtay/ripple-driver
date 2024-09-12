@@ -37,9 +37,9 @@ namespace Psc\Drive\ThinkPHP;
 use Co\IO;
 use Co\Net;
 use JetBrains\PhpStorm\NoReturn;
-use Psc\Core\Http\Server\HttpServer;
 use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Response;
+use Psc\Core\Http\Server\Server as HttpServer;
 use Psc\Drive\Utils\Console;
 use Psc\Utils\Output;
 use Psc\Worker\Command;
@@ -56,13 +56,13 @@ use function Co\cancelAll;
 use function Co\repeat;
 use function file_exists;
 use function fwrite;
+use function gc_collect_cycles;
 use function getmypid;
 use function in_array;
 use function posix_getpid;
 use function root_path;
 use function sprintf;
 use function stream_context_create;
-use function gc_collect_cycles;
 
 use const PHP_OS_FAMILY;
 use const STDOUT;
@@ -76,30 +76,31 @@ class Worker extends \Psc\Worker\Worker
     use Console;
 
     /**
-     * @param string $address
-     * @param int    $count
-     */
-    public function __construct(
-        private readonly string $address = 'http://127.0.0.1:8008',
-        private readonly int    $count = 4
-    ) {
-    }
-
-    /**
      * @var HttpServer
      */
     private HttpServer $httpServer;
 
     /**
+     * @param string $address
+     * @param int    $count
+     */
+    public function __construct(private readonly string $address = 'http://127.0.0.1:8008', private readonly int $count = 4)
+    {
+    }
+
+    /**
      * @Author cclilshy
      * @Date   2024/8/16 23:34
+     *
      * @param Manager $manager
+     *
      * @return void
      * @throws Throwable
      */
     public function register(Manager $manager): void
     {
         cli_set_process_title('think-guard');
+
         app()->bind(Worker::class, fn () => $this);
 
         $context          = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
@@ -142,25 +143,33 @@ class Worker extends \Psc\Worker\Worker
 
     /**
      * @Author cclilshy
+     * @Date   2024/8/17 11:06
+     * @return string
+     */
+    public function getName(): string
+    {
+        return 'http-server';
+    }
+
+    /**
+     * @Author cclilshy
      * @Date   2024/8/17 11:08
      * @return void
      */
     public function boot(): void
     {
+        cli_set_process_title('think-worker');
+
         fwrite(STDOUT, sprintf(
             "Worker %s@%d started.\n",
             $this->getName(),
             PHP_OS_FAMILY === 'Windows' ? getmypid() : posix_getpid()
         ));
-        cli_set_process_title('think-worker');
 
-        /**
-         * register loop timer
-         */
+        /*** register loop timer*/
         repeat(static function () {
             gc_collect_cycles();
         }, 1);
-
 
         $app = new App();
         $app->bind(Worker::class, fn () => $this);
@@ -169,7 +178,6 @@ class Worker extends \Psc\Worker\Worker
             Request  $request,
             Response $response
         ) use ($app) {
-
             $thinkRequest = new \think\Request();
             $thinkRequest->setUrl($request->getUri());
             $thinkRequest->setBaseUrl($request->getBaseUrl());
@@ -181,7 +189,6 @@ class Worker extends \Psc\Worker\Worker
             $thinkRequest->withFiles($request->files->all());
             $thinkRequest->withGet($request->query->all());
             $thinkRequest->withInput($request->getContent());
-
             $thinkResponse = $app->http->run($thinkRequest);
             $thinkRequest->delete(Route::class);
 
@@ -200,18 +207,7 @@ class Worker extends \Psc\Worker\Worker
             }
             $response->respond();
         });
-
         $this->httpServer->listen();
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/17 11:06
-     * @return string
-     */
-    public function getName(): string
-    {
-        return 'http-server';
     }
 
     /**
@@ -227,7 +223,9 @@ class Worker extends \Psc\Worker\Worker
     /**
      * @Author cclilshy
      * @Date   2024/8/16 23:39
+     *
      * @param Command $workerCommand
+     *
      * @return void
      */
     public function onCommand(Command $workerCommand): void

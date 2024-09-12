@@ -69,6 +69,7 @@ class Service extends ThinkPHPService
 
     /**
      * @param mixed $value
+     *
      * @return bool
      */
     private function isTrue(mixed $value): bool

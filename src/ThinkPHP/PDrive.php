@@ -91,6 +91,7 @@ class PDrive extends Command
     /**
      * @param Input  $input
      * @param Output $output
+     *
      * @return void
      * @throws UnsupportedFeatureException
      * @throws ConnectionException
@@ -158,9 +159,7 @@ class PDrive extends Command
      */
     private function start(): void
     {
-        /**
-         * @compatible:Windows
-         */
+        /*** @compatible:Windows */
         if (PHP_OS_FAMILY !== 'Windows') {
             onSignal(SIGINT, fn () => $this->stop());
             onSignal(SIGTERM, fn () => $this->stop());
@@ -168,9 +167,7 @@ class PDrive extends Command
         }
 
         if (!file_exists($this->controlPipePath)) {
-            /**
-             * @compatible:Windows
-             */
+            /*** @compatible:Windows */
             if (PHP_OS_FAMILY === 'Windows') {
                 touch($this->controlPipePath);
             } else {

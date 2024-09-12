@@ -58,14 +58,14 @@ use function posix_mkfifo;
 use function shell_exec;
 use function sprintf;
 use function storage_path;
-use function unlink;
 use function touch;
+use function unlink;
 
 use const PHP_BINARY;
+use const PHP_OS_FAMILY;
 use const SIGINT;
 use const SIGQUIT;
 use const SIGTERM;
-use const PHP_OS_FAMILY;
 
 /**
  * @Author cclilshy
@@ -102,6 +102,7 @@ class PDrive extends Command
     /**
      * @param InputInterface  $input
      * @param OutputInterface $output
+     *
      * @return void
      */
     public function initialize(InputInterface $input, OutputInterface $output): void
@@ -113,6 +114,7 @@ class PDrive extends Command
 
     /**
      * 运行服务
+     *
      * @return void
      * @throws ConnectionException|UnsupportedFeatureException
      */
@@ -176,9 +178,7 @@ class PDrive extends Command
      */
     private function start(): void
     {
-        /**
-         * @compatible:Windows
-         */
+        /*** @compatible:Windows */
         if (PHP_OS_FAMILY !== 'Windows') {
             onSignal(SIGINT, fn () => $this->stop());
             onSignal(SIGTERM, fn () => $this->stop());
@@ -186,9 +186,7 @@ class PDrive extends Command
         }
 
         if (!file_exists($this->controlPipePath)) {
-            /**
-             * @compatible:Windows
-             */
+            /*** @compatible:Windows */
             if (PHP_OS_FAMILY === 'Windows') {
                 touch($this->controlPipePath);
             } else {
@@ -217,9 +215,11 @@ class PDrive extends Command
             }
         });
 
-        $listen = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
-        $count  = intval(Env::get('PRP_HTTP_COUNT', 4)) ?? 4;
-        $this->manager->addWorker(new Worker($listen, $count));
+        $listen  = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
+        $count   = intval(Env::get('PRP_HTTP_COUNT', 4)) ?? 4;
+        $sandbox = Env::get('PRP_SANDBOX', false);
+
+        $this->manager->addWorker(new Worker($listen, $count, $sandbox));
         $this->manager->run();
     }
 
