@@ -136,6 +136,7 @@ class Database extends Manager
 
     /**
      * Hook Factory
+     *
      * @return void
      */
     protected function setupManager(): void

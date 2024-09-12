@@ -56,6 +56,7 @@ use function count;
 use function explode;
 use function function_exists;
 use function get_resource_id;
+use function getmypid;
 use function intval;
 use function is_array;
 use function is_string;
@@ -64,7 +65,6 @@ use function posix_getpid;
 use function pow;
 use function str_contains;
 use function strlen;
-use function getmypid;
 use function usleep;
 
 use const PHP_OS_FAMILY;
@@ -72,15 +72,17 @@ use const PHP_OS_FAMILY;
 class PDrive implements EventInterface
 {
     /**
+     * @var int
+     */
+    private static int $baseProcessId;
+    /**
      * @var array
      */
     protected array $_timer = [];
-
     /**
      * @var array
      */
     protected array $_fd2ids = [];
-
     /**
      * @var array
      */
@@ -91,6 +93,7 @@ class PDrive implements EventInterface
      * @param       $flag //类型
      * @param       $func //回调
      * @param array $args //参数列表
+     *
      * @return bool|int
      */
     public function add($fd, $flag, $func, $args = []): bool|int
@@ -182,9 +185,29 @@ class PDrive implements EventInterface
 
     /**
      * @Author cclilshy
+     * @Date   2024/8/27 21:57
+     *
+     * @param string $string
+     *
+     * @return int
+     */
+    private function string2int(string $string): int
+    {
+        $len = strlen($string);
+        $sum = 0;
+        for ($i = 0; $i < $len; $i++) {
+            $sum += (ord($string[$i]) - 96) * pow(26, $len - $i - 1);
+        }
+        return $sum;
+    }
+
+    /**
+     * @Author cclilshy
      * @Date   2024/8/27 22:00
+     *
      * @param $fd
      * @param $flag
+     *
      * @return void
      */
     public function del($fd, $flag): void
@@ -215,6 +238,37 @@ class PDrive implements EventInterface
                 unset($this->_signal2ids[$fd]);
             }
         }
+    }
+
+    /**
+     * @Author cclilshy
+     * @Date   2024/8/27 22:01
+     *
+     * @param int $id
+     *
+     * @return void
+     */
+    private function cancel(int $id): void
+    {
+        cancel($this->int2string($id));
+    }
+
+    /**
+     * @Author cclilshy
+     * @Date   2024/8/27 21:57
+     *
+     * @param int $int
+     *
+     * @return string
+     */
+    private function int2string(int $int): string
+    {
+        $string = '';
+        while ($int > 0) {
+            $string = chr(($int - 1) % 26 + 97) . $string;
+            $int    = intval(($int - 1) / 26);
+        }
+        return $string;
     }
 
     /**
@@ -272,53 +326,5 @@ class PDrive implements EventInterface
     public function destroy(): void
     {
         cancelAll();
-    }
-
-    /**
-     * @var int
-     */
-    private static int $baseProcessId;
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/27 21:57
-     * @param string $string
-     * @return int
-     */
-    private function string2int(string $string): int
-    {
-        $len = strlen($string);
-        $sum = 0;
-        for ($i = 0; $i < $len; $i++) {
-            $sum += (ord($string[$i]) - 96) * pow(26, $len - $i - 1);
-        }
-        return $sum;
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/27 21:57
-     * @param int $int
-     * @return string
-     */
-    private function int2string(int $int): string
-    {
-        $string = '';
-        while ($int > 0) {
-            $string = chr(($int - 1) % 26 + 97) . $string;
-            $int    = intval(($int - 1) / 26);
-        }
-        return $string;
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/27 22:01
-     * @param int $id
-     * @return void
-     */
-    private function cancel(int $id): void
-    {
-        cancel($this->int2string($id));
     }
 }

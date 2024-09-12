@@ -36,14 +36,18 @@ namespace Psc\Drive\Laravel;
 
 use Co\IO;
 use Co\Net;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Env;
-use Illuminate\Support\Facades\Event;
 use JetBrains\PhpStorm\NoReturn;
-use Psc\Core\Http\Server\HttpServer;
-use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Response;
-use Psc\Core\Stream\Exception\ConnectionException;
+use Psc\Core\Http\Server\Server as HttpServer;
+use Psc\Drive\Laravel\Events\RequestHandled;
+use Psc\Drive\Laravel\Events\RequestReceived;
+use Psc\Drive\Laravel\Events\RequestTerminated;
+use Psc\Drive\Laravel\Events\WorkerErrorOccurred;
+use Psc\Drive\Laravel\Traits\DispatchesEvents;
 use Psc\Drive\Utils\Console;
 use Psc\Utils\Output;
 use Psc\Worker\Command;
@@ -57,14 +61,14 @@ use function Co\cancelAll;
 use function file_exists;
 use function fopen;
 use function fwrite;
+use function getmypid;
+use function in_array;
 use function posix_getpid;
 use function sprintf;
 use function stream_context_create;
-use function getmypid;
-use function in_array;
 
-use const STDOUT;
 use const PHP_OS_FAMILY;
+use const STDOUT;
 
 /**
  * @Author cclilshy
@@ -72,17 +76,7 @@ use const PHP_OS_FAMILY;
  */
 class Worker extends \Psc\Worker\Worker
 {
-    use Console;
-
-    /**
-     * @param string $address
-     * @param int    $count
-     */
-    public function __construct(
-        private readonly string $address = 'http://127.0.0.1:8008',
-        private readonly int    $count = 4
-    ) {
-    }
+    use Console, DispatchesEvents;
 
     /**
      * @var HttpServer
@@ -90,9 +84,23 @@ class Worker extends \Psc\Worker\Worker
     private HttpServer $httpServer;
 
     /**
+     * @param string $address
+     * @param int    $count
+     * @param bool   $sandbox
+     */
+    public function __construct(
+        private readonly string $address = 'http://127.0.0.1:8008',
+        private readonly int    $count = 4,
+        private readonly bool   $sandbox = false,
+    ) {
+    }
+
+    /**
      * @Author cclilshy
      * @Date   2024/8/16 23:34
+     *
      * @param Manager $manager
+     *
      * @return void
      * @throws Throwable
      */
@@ -102,12 +110,14 @@ class Worker extends \Psc\Worker\Worker
 
         $context          = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
         $this->httpServer = Net::Http()->server($this->address, $context);
+        $this->httpServer->setRequestFactory(new RequestFactory());
+
         fwrite(STDOUT, $this->formatRow(['Worker', $this->getName()]));
         fwrite(STDOUT, $this->formatRow(['Listen', $this->address]));
         fwrite(STDOUT, $this->formatRow(["Workers", $this->count]));
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
-        if (in_array(Env::get('PHP_HOT_RELOAD'), ['true', '1', 'on',true,1], true)) {
+        if (in_array(Env::get('PHP_HOT_RELOAD'), ['true', '1', 'on', true, 1], true)) {
             $monitor = IO::File()->watch();
             $monitor->add(base_path('app'));
             $monitor->add(base_path('bootstrap'));
@@ -140,18 +150,27 @@ class Worker extends \Psc\Worker\Worker
 
     /**
      * @Author cclilshy
+     * @Date   2024/8/17 11:06
+     * @return string
+     */
+    public function getName(): string
+    {
+        return 'http-server';
+    }
+
+    /**
+     * @Author cclilshy
      * @Date   2024/8/17 11:08
      * @return void
      */
     public function boot(): void
     {
+        cli_set_process_title('laravel-worker');
         fwrite(STDOUT, sprintf(
             "Worker %s@%d started.\n",
             $this->getName(),
             PHP_OS_FAMILY === 'Windows' ? getmypid() : posix_getpid()
         ));
-
-        cli_set_process_title('laravel-worker');
 
         /**
          * @var Application $application
@@ -159,53 +178,49 @@ class Worker extends \Psc\Worker\Worker
         $application = include base_path('/bootstrap/app.php');
         $application->bind(Worker::class, fn () => $this);
 
-        /**
-         * @param Request  $request
-         * @param Response $response
-         * @return void
-         * @throws ConnectionException
-         */
-        $this->httpServer->onRequest(static function (
-            Request  $request,
+        $this->httpServer->onRequest(function (
+            Request  $laravelRequest,
             Response $response
         ) use ($application) {
-            $laravelRequest  = new \Illuminate\Http\Request(
-                $request->query->all(),
-                $request->request->all(),
-                $request->attributes->all(),
-                $request->cookies->all(),
-                $request->files->all(),
-                $request->server->all(),
-                $request->getContent(),
-            );
-            $symfonyResponse = $application->handle($laravelRequest);
-            $response->setStatusCode($symfonyResponse->getStatusCode());
-            $response->setProtocolVersion($symfonyResponse->getProtocolVersion());
-            $response->headers->add($symfonyResponse->headers->all());
-            if ($symfonyResponse instanceof BinaryFileResponse) {
-                $response->setContent(
-                    fopen($symfonyResponse->getFile()->getPathname(), 'r+'),
-                );
-            } else {
-                $response->setContent(
-                    $symfonyResponse->getContent(),
-                    $symfonyResponse->headers->get('Content-Type')
-                );
+
+            $app = $this->sandbox ? clone $application : $application;
+
+            try {
+                $this->dispatchEvent($app, new RequestReceived($application, $app, $laravelRequest));
+
+                $laravelResponse = $app->handle($laravelRequest);
+                $response->setStatusCode($laravelResponse->getStatusCode());
+                $response->setProtocolVersion($laravelResponse->getProtocolVersion());
+                $response->headers->add($laravelResponse->headers->all());
+                if ($laravelResponse instanceof BinaryFileResponse) {
+                    $response->setContent(fopen($laravelResponse->getFile()->getPathname(), 'r+'));
+                } else {
+                    $response->setContent(
+                        $laravelResponse->getContent(),
+                        $laravelResponse->headers->get('Content-Type')
+                    );
+                }
+                $response->respond();
+
+                $this->dispatchEvent($app, new RequestHandled($application, $app, $laravelRequest, $laravelResponse));
+
+                /*** @var Kernel $kernel */
+                $kernel = $app->make(Kernel::class);
+                $kernel->terminate($laravelRequest, $response);
+
+                $this->dispatchEvent($app, new RequestTerminated($application, $app, $laravelRequest, $laravelResponse));
+            } catch (Throwable $e) {
+                $this->dispatchEvent($app, new WorkerErrorOccurred($application, $app, $e));
+            } finally {
+                if ($this->sandbox) {
+                    unset($app);
+                }
+                unset($laravelRequest, $response, $laravelResponse, $kernel);
             }
-            $response->respond();
+
         });
 
         $this->httpServer->listen();
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/17 11:06
-     * @return string
-     */
-    public function getName(): string
-    {
-        return 'http-server';
     }
 
     /**
@@ -221,7 +236,9 @@ class Worker extends \Psc\Worker\Worker
     /**
      * @Author cclilshy
      * @Date   2024/8/16 23:39
+     *
      * @param Command $workerCommand
+     *
      * @return void
      */
     public function onCommand(Command $workerCommand): void

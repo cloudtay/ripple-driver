@@ -48,6 +48,22 @@ use PDO;
 class Factory extends ConnectionFactory
 {
     /**
+     * @param array $config
+     *
+     * @return ConnectorInterface
+     */
+    public function createConnector(array $config): ConnectorInterface
+    {
+        return match ($config['driver']) {
+            // Coroutine MySQL connector
+            'mysql-amp' => new MySQL\Connector(),
+
+            // Coroutine MySQL connector
+            default     => parent::createConnector($config)
+        };
+    }
+
+    /**
      * Create a new connection instance.
      *
      * @param string      $driver
@@ -55,6 +71,7 @@ class Factory extends ConnectionFactory
      * @param string      $database
      * @param string      $prefix
      * @param array       $config
+     *
      * @return SQLiteConnection|MariaDbConnection|MySqlConnection|PostgresConnection|SqlServerConnection|Connection
      *
      */
@@ -65,22 +82,7 @@ class Factory extends ConnectionFactory
             'mysql-amp' => new MySQL\Connection($connection, $database, $prefix, $config),
 
             // Native database connection
-            default => parent::createConnection($driver, $connection, $database, $prefix, $config)
-        };
-    }
-
-    /**
-     * @param array $config
-     * @return ConnectorInterface
-     */
-    public function createConnector(array $config): ConnectorInterface
-    {
-        return match ($config['driver']) {
-            // Coroutine MySQL connector
-            'mysql-amp' => new MySQL\Connector(),
-
-            // Coroutine MySQL connector
-            default => parent::createConnector($config)
+            default     => parent::createConnection($driver, $connection, $database, $prefix, $config)
         };
     }
 }

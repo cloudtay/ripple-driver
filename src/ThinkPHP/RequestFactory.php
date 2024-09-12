@@ -32,34 +32,25 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\ThinkPHP\Middleware;
+namespace Psc\Drive\ThinkPHP;
 
-use Closure;
-use think\Request;
+use Psc\Core\Http\Server\RequestFactoryInterface;
 
-use function app;
-
-/**
- * @Description
- * @Author cclilshy
- * @Date   2024/8/31 18:01
- */
-class IsolationMiddleware
+class RequestFactory implements RequestFactoryInterface
 {
     /**
-     * 处理请求
+     * @param array $query
+     * @param array $request
+     * @param array $attributes
+     * @param array $cookies
+     * @param array $files
+     * @param array $server
+     * @param mixed $content
      *
-     * @param Request $request
-     * @param Closure $next
      * @return mixed
      */
-    public function handle(Request $request, Closure $next): mixed
+    public function __invoke(array $query, array $request, array $attributes, array $cookies, array $files, array $server, mixed $content): mixed
     {
-        if ($controllerClassName = $request->controller()) {
-            app()->bind($controllerClassName, static function () use ($controllerClassName) {
-                return app()->make($controllerClassName);
-            });
-        }
-        return $next($request);
+        return false;
     }
 }
