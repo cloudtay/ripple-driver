@@ -43,6 +43,11 @@ use Illuminate\Support\Env;
 use JetBrains\PhpStorm\NoReturn;
 use Psc\Core\Http\Server\Response;
 use Psc\Core\Http\Server\Server as HttpServer;
+use Psc\Drive\Laravel\Events\RequestHandled;
+use Psc\Drive\Laravel\Events\RequestReceived;
+use Psc\Drive\Laravel\Events\RequestTerminated;
+use Psc\Drive\Laravel\Events\WorkerErrorOccurred;
+use Psc\Drive\Laravel\Traits\DispatchesEvents;
 use Psc\Drive\Utils\Console;
 use Psc\Utils\Output;
 use Psc\Worker\Command;
@@ -71,7 +76,7 @@ use const STDOUT;
  */
 class Worker extends \Psc\Worker\Worker
 {
-    use Console;
+    use Console, DispatchesEvents;
 
     /**
      * @var HttpServer
@@ -173,32 +178,46 @@ class Worker extends \Psc\Worker\Worker
         $application = include base_path('/bootstrap/app.php');
         $application->bind(Worker::class, fn () => $this);
 
-        $sandbox = $this->sandbox;
-        $this->httpServer->onRequest(static function (
+        $this->httpServer->onRequest(function (
             Request  $laravelRequest,
             Response $response
-        ) use ($application, $sandbox) {
-            if ($sandbox) {
-                $application = clone $application;
+        ) use ($application) {
+
+            $app = $this->sandbox ? clone $application : $application;
+
+            try {
+                $this->dispatchEvent($app, new RequestReceived($application, $app, $laravelRequest));
+
+                $laravelResponse = $app->handle($laravelRequest);
+                $response->setStatusCode($laravelResponse->getStatusCode());
+                $response->setProtocolVersion($laravelResponse->getProtocolVersion());
+                $response->headers->add($laravelResponse->headers->all());
+                if ($laravelResponse instanceof BinaryFileResponse) {
+                    $response->setContent(fopen($laravelResponse->getFile()->getPathname(), 'r+'));
+                } else {
+                    $response->setContent(
+                        $laravelResponse->getContent(),
+                        $laravelResponse->headers->get('Content-Type')
+                    );
+                }
+                $response->respond();
+
+                $this->dispatchEvent($app, new RequestHandled($application, $app, $laravelRequest, $laravelResponse));
+
+                /*** @var Kernel $kernel */
+                $kernel = $app->make(Kernel::class);
+                $kernel->terminate($laravelRequest, $response);
+
+                $this->dispatchEvent($app, new RequestTerminated($application, $app, $laravelRequest, $laravelResponse));
+            } catch (Throwable $e) {
+                $this->dispatchEvent($app, new WorkerErrorOccurred($application, $app, $e));
+            } finally {
+                if ($sandbox) {
+                    unset($app);
+                }
+                unset($laravelRequest, $response, $laravelResponse, $kernel);
             }
 
-            $laravelResponse = $application->handle($laravelRequest);
-            $response->setStatusCode($laravelResponse->getStatusCode());
-            $response->setProtocolVersion($laravelResponse->getProtocolVersion());
-            $response->headers->add($laravelResponse->headers->all());
-            if ($laravelResponse instanceof BinaryFileResponse) {
-                $response->setContent(fopen($laravelResponse->getFile()->getPathname(), 'r+'));
-            } else {
-                $response->setContent(
-                    $laravelResponse->getContent(),
-                    $laravelResponse->headers->get('Content-Type')
-                );
-            }
-            $response->respond();
-
-            /*** @var Kernel $kernel */
-            $kernel = $application->make(Kernel::class);
-            $kernel->terminate($laravelRequest, $response);
         });
 
         $this->httpServer->listen();
