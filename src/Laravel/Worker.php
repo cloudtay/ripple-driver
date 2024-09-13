@@ -212,7 +212,7 @@ class Worker extends \Psc\Worker\Worker
             } catch (Throwable $e) {
                 $this->dispatchEvent($app, new WorkerErrorOccurred($application, $app, $e));
             } finally {
-                if ($sandbox) {
+                if ($this->sandbox) {
                     unset($app);
                 }
                 unset($laravelRequest, $response, $laravelResponse, $kernel);
