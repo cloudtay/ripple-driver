@@ -188,6 +188,8 @@ class Worker extends \Psc\Worker\Worker
             $response->headers->add($laravelResponse->headers->all());
             if ($laravelResponse instanceof BinaryFileResponse) {
                 $response->setContent(fopen($laravelResponse->getFile()->getPathname(), 'r+'));
+            } elseif ($laravelResponse instanceof GeneratorResponse) {
+                $response->setContent($laravelResponse->getGenerator());
             } else {
                 $response->setContent(
                     $laravelResponse->getContent(),
