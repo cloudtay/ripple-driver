@@ -76,7 +76,8 @@ use const STDOUT;
  */
 class Worker extends \Psc\Worker\Worker
 {
-    use Console, DispatchesEvents;
+    use Console;
+    use DispatchesEvents;
 
     /**
      * @var HttpServer
@@ -194,6 +195,8 @@ class Worker extends \Psc\Worker\Worker
                 $response->headers->add($laravelResponse->headers->all());
                 if ($laravelResponse instanceof BinaryFileResponse) {
                     $response->setContent(fopen($laravelResponse->getFile()->getPathname(), 'r+'));
+                } elseif ($laravelResponse instanceof GeneratorResponse) {
+                    $response->setContent($laravelResponse->getGenerator());
                 } else {
                     $response->setContent(
                         $laravelResponse->getContent(),
@@ -207,7 +210,6 @@ class Worker extends \Psc\Worker\Worker
                 /*** @var Kernel $kernel */
                 $kernel = $app->make(Kernel::class);
                 $kernel->terminate($laravelRequest, $response);
-
                 $this->dispatchEvent($app, new RequestTerminated($application, $app, $laravelRequest, $laravelResponse));
             } catch (Throwable $e) {
                 $this->dispatchEvent($app, new WorkerErrorOccurred($application, $app, $e));
