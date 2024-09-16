@@ -190,7 +190,6 @@ class Worker extends \Psc\Worker\Worker
             $thinkRequest->withGet($request->query->all());
             $thinkRequest->withInput($request->getContent());
             $thinkResponse = $app->http->run($thinkRequest);
-            $thinkRequest->delete(Route::class);
 
             $response->setStatusCode($thinkResponse->getCode());
             $response->headers->add($thinkResponse->getHeader());
@@ -206,6 +205,7 @@ class Worker extends \Psc\Worker\Worker
                 );
             }
             $response->respond();
+            $app->delete(Route::class);
         });
         $this->httpServer->listen();
     }
