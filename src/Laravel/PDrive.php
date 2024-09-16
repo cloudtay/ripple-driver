@@ -47,6 +47,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 use function app;
 use function base_path;
+use function boolval;
 use function Co\cancelAll;
 use function Co\onSignal;
 use function Co\tick;
@@ -217,7 +218,7 @@ class PDrive extends Command
 
         $listen  = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
         $count   = intval(Env::get('PRP_HTTP_COUNT', 4)) ?? 4;
-        $sandbox = Env::get('PRP_SANDBOX', false);
+        $sandbox = boolval(Env::get('PRP_SANDBOX', false));
 
         $this->manager->addWorker(new Worker($listen, $count, $sandbox));
         $this->manager->run();
