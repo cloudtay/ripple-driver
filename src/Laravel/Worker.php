@@ -194,6 +194,8 @@ class Worker extends \Psc\Worker\Worker
                 $response->headers->add($laravelResponse->headers->all());
                 if ($laravelResponse instanceof BinaryFileResponse) {
                     $response->setContent(fopen($laravelResponse->getFile()->getPathname(), 'r+'));
+                } elseif ($laravelResponse instanceof GeneratorResponse) {
+                    $response->setContent($laravelResponse->getGenerator());
                 } else {
                     $response->setContent(
                         $laravelResponse->getContent(),
@@ -201,13 +203,11 @@ class Worker extends \Psc\Worker\Worker
                     );
                 }
                 $response->respond();
-
                 $this->dispatchEvent($app, new RequestHandled($application, $app, $laravelRequest, $laravelResponse));
 
                 /*** @var Kernel $kernel */
                 $kernel = $app->make(Kernel::class);
                 $kernel->terminate($laravelRequest, $response);
-
                 $this->dispatchEvent($app, new RequestTerminated($application, $app, $laravelRequest, $laravelResponse));
             } catch (Throwable $e) {
                 $this->dispatchEvent($app, new WorkerErrorOccurred($application, $app, $e));
@@ -217,7 +217,6 @@ class Worker extends \Psc\Worker\Worker
                 }
                 unset($laravelRequest, $response, $laravelResponse, $kernel);
             }
-
         });
 
         $this->httpServer->listen();
