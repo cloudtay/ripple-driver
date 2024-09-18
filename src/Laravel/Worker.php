@@ -85,6 +85,11 @@ class Worker extends \Psc\Worker\Worker
     private HttpServer $httpServer;
 
     /**
+     * @var HttpServer
+     */
+    private HttpServer $httpServer;
+
+    /**
      * @param string $address
      * @param int    $count
      * @param bool   $sandbox
@@ -219,7 +224,6 @@ class Worker extends \Psc\Worker\Worker
                 }
                 unset($laravelRequest, $response, $laravelResponse, $kernel);
             }
-
         });
 
         $this->httpServer->listen();
