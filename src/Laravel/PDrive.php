@@ -38,6 +38,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Env;
 use Psc\Core\Stream\Exception\ConnectionException;
 use Psc\Core\Stream\Stream;
+use Psc\Kernel;
 use Psc\Utils\Output;
 use Psc\Utils\Serialization\Zx7e;
 use Psc\Worker\Manager;
@@ -50,18 +51,21 @@ use function base_path;
 use function boolval;
 use function Co\cancelAll;
 use function Co\onSignal;
-use function Co\tick;
+use function Co\wait;
 use function file_exists;
+use function flock;
 use function fopen;
 use function intval;
 use function json_decode;
-use function posix_mkfifo;
 use function shell_exec;
 use function sprintf;
 use function storage_path;
 use function touch;
 use function unlink;
+use function posix_mkfifo;
 
+use const LOCK_EX;
+use const LOCK_NB;
 use const PHP_BINARY;
 use const PHP_OS_FAMILY;
 use const SIGINT;
@@ -74,12 +78,20 @@ use const SIGTERM;
  */
 class PDrive extends Command
 {
+    public const DECLARE_OPTIONS = [
+        'PRP_HTTP_LISTEN' => 'http://127.0.0.1:8008',
+        'PRP_HTTP_COUNT' => 4,
+        'PRP_HTTP_RELOAD' => 0,
+        'PRP_HTTP_SANDBOX' => 0,
+        'PRP_HTTP_ISOLATION' => 0,
+    ];
+
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'p:server
+    protected $signature = 'ripple:server
     {action=start : The action to perform ,Support start|stop|reload|status}
     {--d|daemon : Run the server in the background}';
 
@@ -88,17 +100,16 @@ class PDrive extends Command
      *
      * @var string
      */
-    protected $description = 'start the P-Drive service';
+    protected $description = 'start the ripple service';
 
-    /**
-     * @var Manager
-     */
+    /*** @var Manager */
     private Manager $manager;
 
-    /**
-     * @var string
-     */
+    /*** @var string */
     private string $controlPipePath;
+
+    /*** @var string */
+    private string $controlLockPath;
 
     /**
      * @param InputInterface  $input
@@ -110,7 +121,8 @@ class PDrive extends Command
     {
         parent::initialize($input, $output);
         $this->manager         = app(Manager::class);
-        $this->controlPipePath = storage_path('control.pipe');
+        $this->controlPipePath = storage_path('ripple.pipe');
+        $this->controlLockPath = storage_path('ripple.lock');
     }
 
     /**
@@ -124,19 +136,15 @@ class PDrive extends Command
         $zx7e = new Zx7e();
         switch ($this->argument('action')) {
             case 'start':
-                if (file_exists($this->controlPipePath)) {
-                    Output::warning('The server is already running');
-                    return;
-                }
                 if (!$this->option('daemon')) {
                     $this->start();
-                    tick();
+                    wait();
                 } else {
                     $command = sprintf(
-                        '%s %s p:server start > %s &',
+                        '%s %s ripple:server start > %s &',
                         PHP_BINARY,
                         base_path('artisan'),
-                        storage_path('logs/prp.log')
+                        storage_path('logs/ripple.log')
                     );
                     shell_exec($command);
                     Output::writeln('server started');
@@ -188,16 +196,26 @@ class PDrive extends Command
 
         if (!file_exists($this->controlPipePath)) {
             /*** @compatible:Windows */
-            if (PHP_OS_FAMILY === 'Windows') {
+            if (!Kernel::getInstance()->supportProcessControl()) {
                 touch($this->controlPipePath);
             } else {
                 posix_mkfifo($this->controlPipePath, 0600);
             }
         }
 
+        if (!file_exists($this->controlLockPath)) {
+            touch($this->controlLockPath);
+        }
+
         $zx7e          = new Zx7e();
         $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
         $controlStream->setBlocking(false);
+
+        if (!flock(fopen($this->controlLockPath, 'r'), LOCK_EX | LOCK_NB)) {
+            Output::warning('The server is already running');
+            exit(0);
+        }
+
         $controlStream->onReadable(function (Stream $controlStream) use ($zx7e) {
             $content = $controlStream->read(1024);
             foreach ($zx7e->decodeStream($content) as $command) {
@@ -218,7 +236,7 @@ class PDrive extends Command
 
         $listen  = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
         $count   = intval(Env::get('PRP_HTTP_COUNT', 4)) ?? 4;
-        $sandbox = boolval(Env::get('PRP_SANDBOX', false));
+        $sandbox = boolval(Env::get('PRP_HTTP_SANDBOX', false));
 
         $this->manager->addWorker(new Worker($listen, $count, $sandbox));
         $this->manager->run();

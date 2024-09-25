@@ -70,9 +70,9 @@ class Provider extends ServiceProvider
         });
 
         // 配置项: 安全隔离模式
-        $PRP_ISOLATION = Env::get('PRP_ISOLATION');
+        $PRP_HTTP_ISOLATION = Env::get('PRP_HTTP_ISOLATION');
 
-        if ($this->isTrue($PRP_ISOLATION)) {
+        if ($this->isTrue($PRP_HTTP_ISOLATION)) {
             $kernel->appendMiddlewareToGroup('web', IsolationMiddleware::class);
             $kernel->appendMiddlewareToGroup('api', IsolationMiddleware::class);
         }

@@ -48,7 +48,7 @@ jobs:
       - name: 启动引擎服务 (Start Server)
         working-directory: thinkphp-app
         run: |
-          php think p:server start &
+          php think ripple:server start &
           sleep 1
 
       - name: 压力测试 (Run Stress testing)
@@ -61,4 +61,4 @@ jobs:
 
       - name: 关闭服务 (Stop Server)
         working-directory: thinkphp-app
-        run: php think p:server stop
+        run: php think ripple:server stop

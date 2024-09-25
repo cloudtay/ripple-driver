@@ -38,10 +38,9 @@ use Co\IO;
 use Co\Net;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Application;
-use Illuminate\Http\Request;
 use Illuminate\Support\Env;
 use JetBrains\PhpStorm\NoReturn;
-use Psc\Core\Http\Server\Response;
+use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Server as HttpServer;
 use Psc\Drive\Laravel\Events\RequestHandled;
 use Psc\Drive\Laravel\Events\RequestReceived;
@@ -61,13 +60,9 @@ use function Co\cancelAll;
 use function file_exists;
 use function fopen;
 use function fwrite;
-use function getmypid;
 use function in_array;
-use function posix_getpid;
-use function sprintf;
 use function stream_context_create;
 
-use const PHP_OS_FAMILY;
 use const STDOUT;
 
 /**
@@ -79,10 +74,11 @@ class Worker extends \Psc\Worker\Worker
     use Console;
     use DispatchesEvents;
 
-    /**
-     * @var HttpServer
-     */
+    /*** @var HttpServer */
     private HttpServer $httpServer;
+
+    /*** @var \Illuminate\Foundation\Application */
+    private Application $application;
 
     /**
      * @param string $address
@@ -109,16 +105,24 @@ class Worker extends \Psc\Worker\Worker
     {
         cli_set_process_title('laravel-guard');
 
-        $context          = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
-        $this->httpServer = Net::Http()->server($this->address, $context);
-        $this->httpServer->setRequestFactory(new RequestFactory());
-
+        /*** output worker*/
         fwrite(STDOUT, $this->formatRow(['Worker', $this->getName()]));
-        fwrite(STDOUT, $this->formatRow(['Listen', $this->address]));
-        fwrite(STDOUT, $this->formatRow(["Workers", $this->count]));
+
+        /*** output env*/
+        fwrite(STDOUT, $this->formatRow(["- Conf"]));
+        foreach (PDrive::DECLARE_OPTIONS as $key => $value) {
+            fwrite(STDOUT, $this->formatRow(["{$key}", Env::get($key, $value) ?: 'off']));
+        }
+
+        /*** output logs*/
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
-        if (in_array(Env::get('PHP_HOT_RELOAD'), ['true', '1', 'on', true, 1], true)) {
+        $context          = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
+        $this->httpServer = Net::Http()->server($this->address, $context);
+
+        $this->application = Application::getInstance();
+
+        if (in_array(Env::get('PRP_HTTP_RELOAD'), ['true', '1', 'on', true, 1], true)) {
             $monitor = IO::File()->watch();
             $monitor->add(base_path('app'));
             $monitor->add(base_path('bootstrap'));
@@ -167,29 +171,40 @@ class Worker extends \Psc\Worker\Worker
     public function boot(): void
     {
         cli_set_process_title('laravel-worker');
-        fwrite(STDOUT, sprintf(
-            "Worker %s@%d started.\n",
-            $this->getName(),
-            PHP_OS_FAMILY === 'Windows' ? getmypid() : posix_getpid()
-        ));
 
-        /**
-         * @var Application $application
-         */
-        $application = include base_path('/bootstrap/app.php');
-        $application->bind(Worker::class, fn () => $this);
+        $this->application->bind(Worker::class, fn () => $this);
 
         $this->httpServer->onRequest(function (
-            Request  $laravelRequest,
-            Response $response
-        ) use ($application) {
+            Request $request
+        ) {
+            if ($this->application->bound('session')) {
+                $this->application->make('session')->forgetDrivers();
+                $this->application->forgetInstance('session.store');
+            }
 
-            $app = $this->sandbox ? clone $application : $application;
+            $application = $this->sandbox ? clone $this->application : $this->application;
+
+            /*** @var Kernel $kernel */
+            $kernel = $application->make(Kernel::class);
+
+            $laravelRequest = new \Illuminate\Http\Request(
+                $request->GET,
+                $request->POST,
+                [],
+                $request->COOKIE,
+                $request->FILES,
+                $request->SERVER,
+                $request->CONTENT,
+            );
+
+            $laravelRequest->attributes->set('ripple.request', $request);
+
+            $response = $request->getResponse();
 
             try {
-                $this->dispatchEvent($app, new RequestReceived($application, $app, $laravelRequest));
+                $this->dispatchEvent($application, new RequestReceived($this->application, $application, $laravelRequest));
 
-                $laravelResponse = $app->handle($laravelRequest);
+                $laravelResponse = $kernel->handle($laravelRequest);
                 $response->setStatusCode($laravelResponse->getStatusCode());
                 $response->setProtocolVersion($laravelResponse->getProtocolVersion());
                 $response->headers->add($laravelResponse->headers->all());
@@ -198,30 +213,23 @@ class Worker extends \Psc\Worker\Worker
                 } elseif ($laravelResponse instanceof GeneratorResponse) {
                     $response->setContent($laravelResponse->getGenerator());
                 } else {
-                    $response->setContent(
-                        $laravelResponse->getContent(),
-                        $laravelResponse->headers->get('Content-Type')
-                    );
+                    $response->setContent($laravelResponse->getContent());
                 }
+
                 $response->respond();
+                $this->dispatchEvent($application, new RequestHandled($this->application, $application, $laravelRequest, $laravelResponse));
 
-                $this->dispatchEvent($app, new RequestHandled($application, $app, $laravelRequest, $laravelResponse));
-
-                /*** @var Kernel $kernel */
-                $kernel = $app->make(Kernel::class);
                 $kernel->terminate($laravelRequest, $response);
-                $this->dispatchEvent($app, new RequestTerminated($application, $app, $laravelRequest, $laravelResponse));
+                $this->dispatchEvent($application, new RequestTerminated($this->application, $application, $laravelRequest, $laravelResponse));
             } catch (Throwable $e) {
-                $this->dispatchEvent($app, new WorkerErrorOccurred($application, $app, $e));
+                $this->dispatchEvent($application, new WorkerErrorOccurred($this->application, $application, $e));
             } finally {
                 if ($this->sandbox) {
-                    unset($app);
+                    unset($application);
                 }
                 unset($laravelRequest, $response, $laravelResponse, $kernel);
             }
-
         });
-
         $this->httpServer->listen();
     }
 

@@ -36,6 +36,7 @@ namespace Psc\Drive\ThinkPHP;
 
 use Psc\Core\Stream\Exception\ConnectionException;
 use Psc\Core\Stream\Stream;
+use Psc\Kernel;
 use Psc\Utils\Serialization\Zx7e;
 use Psc\Worker\Manager;
 use Revolt\EventLoop\UnsupportedFeatureException;
@@ -48,8 +49,9 @@ use think\facade\Env;
 use function app;
 use function Co\cancelAll;
 use function Co\onSignal;
-use function Co\tick;
+use function Co\wait;
 use function file_exists;
+use function flock;
 use function fopen;
 use function intval;
 use function json_decode;
@@ -62,6 +64,8 @@ use function sprintf;
 use function touch;
 use function unlink;
 
+use const LOCK_EX;
+use const LOCK_NB;
 use const PHP_BINARY;
 use const PHP_OS_FAMILY;
 use const SIGINT;
@@ -76,16 +80,20 @@ class PDrive extends Command
     /*** @var string */
     private string $controlPipePath;
 
+    /*** @var string */
+    private string $controlLockPath;
+
     /**
      * @return void
      */
     protected function configure(): void
     {
-        $this->setName('p-ripple')->setDescription('start the P-Drive service');
+        $this->setName('ripple')->setDescription('start the ripple service');
         $this->addArgument('action', Option::VALUE_REQUIRED, 'start|stop|reload|status', 'start');
         $this->addOption('daemon', 'd', Option::VALUE_NONE, 'Run the server on the background');
         $this->manager         = app(Manager::class);
-        $this->controlPipePath = runtime_path() . '/control.pipe';
+        $this->controlPipePath = runtime_path() . '/ripple.pipe';
+        $this->controlLockPath = runtime_path() . '/ripple.lock';
     }
 
     /**
@@ -101,22 +109,18 @@ class PDrive extends Command
         $zx7e = new Zx7e();
         switch ($input->getArgument('action')) {
             case 'start':
-                if (file_exists($this->controlPipePath)) {
-                    \Psc\Utils\Output::warning('The server is already running');
-                    return;
-                }
                 if (!$input->getOption('daemon')) {
                     $this->start();
-                    tick();
+                    wait();
                 } else {
                     if (!file_exists(runtime_path('log'))) {
                         mkdir(runtime_path('log'), 0755, true);
                     }
                     $command = sprintf(
-                        '%s %s p:server start > %s &',
+                        '%s %s ripple:server start > %s &',
                         PHP_BINARY,
                         root_path() . 'think',
-                        runtime_path('log') . 'prp.log'
+                        runtime_path('log') . 'ripple.log'
                     );
                     shell_exec($command);
                     \Psc\Utils\Output::writeln('server started');
@@ -149,7 +153,6 @@ class PDrive extends Command
                 break;
             default:
                 \Psc\Utils\Output::warning('Unsupported operation');
-                return;
         }
     }
 
@@ -168,14 +171,22 @@ class PDrive extends Command
 
         if (!file_exists($this->controlPipePath)) {
             /*** @compatible:Windows */
-            if (PHP_OS_FAMILY === 'Windows') {
+            if (!Kernel::getInstance()->supportProcessControl()) {
                 touch($this->controlPipePath);
             } else {
                 posix_mkfifo($this->controlPipePath, 0600);
             }
         }
 
+        if (!file_exists($this->controlLockPath)) {
+            touch($this->controlLockPath);
+        }
+
         $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
+        if (!flock(fopen($this->controlLockPath, 'r'), LOCK_EX | LOCK_NB)) {
+            \Psc\Utils\Output::warning('The server is already running');
+            exit(0);
+        }
         $controlStream->setBlocking(false);
 
         $zx7e = new Zx7e();

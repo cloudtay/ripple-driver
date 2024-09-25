@@ -49,7 +49,7 @@ jobs:
       - name: 启动引擎服务 (Start Server)
         working-directory: laravel-app
         run: |
-          php artisan p:server start &
+          php artisan ripple:server start &
           sleep 1
 
       - name: 压力测试 (Run Stress testing)
@@ -62,4 +62,4 @@ jobs:
 
       - name: 关闭服务 (Stop Server)
         working-directory: laravel-app
-        run: php artisan p:server stop
+        run: php artisan ripple:server stop

@@ -38,7 +38,6 @@ use Co\IO;
 use Co\Net;
 use JetBrains\PhpStorm\NoReturn;
 use Psc\Core\Http\Server\Request;
-use Psc\Core\Http\Server\Response;
 use Psc\Core\Http\Server\Server as HttpServer;
 use Psc\Drive\Utils\Console;
 use Psc\Utils\Output;
@@ -62,7 +61,11 @@ use function in_array;
 use function posix_getpid;
 use function root_path;
 use function sprintf;
+use function str_replace;
+use function str_starts_with;
 use function stream_context_create;
+use function strtolower;
+use function substr;
 
 use const PHP_OS_FAMILY;
 use const STDOUT;
@@ -175,34 +178,40 @@ class Worker extends \Psc\Worker\Worker
         $app->bind(Worker::class, fn () => $this);
 
         $this->httpServer->onRequest(static function (
-            Request  $request,
-            Response $response
+            Request  $request
         ) use ($app) {
+            $response = $request->getResponse();
+
+            $headers = [];
+            foreach ($request->SERVER as $key => $value) {
+                if (str_starts_with($key, 'HTTP_')) {
+                    $headers[strtolower(str_replace('_', '-', substr($key, 5)))] = $value;
+                }
+            }
+
             $thinkRequest = new \think\Request();
-            $thinkRequest->setUrl($request->getUri());
-            $thinkRequest->setBaseUrl($request->getBaseUrl());
-            $thinkRequest->setHost($request->getHost());
-            $thinkRequest->setPathinfo($request->getPathInfo());
-            $thinkRequest->setMethod($request->getMethod());
-            $thinkRequest->withHeader($request->headers->all());
-            $thinkRequest->withCookie($request->cookies->all());
-            $thinkRequest->withFiles($request->files->all());
-            $thinkRequest->withGet($request->query->all());
-            $thinkRequest->withInput($request->getContent());
+            $thinkRequest->setUrl($request->SERVER['REQUEST_URI']);
+            $thinkRequest->setBaseUrl($request->SERVER['REQUEST_URI']);
+            $thinkRequest->setHost($request->SERVER['HTTP_HOST'] ?? '');
+            $thinkRequest->setPathinfo($request->SERVER['REQUEST_URI'] ?? '');
+            $thinkRequest->setMethod($request->SERVER['REQUEST_METHOD'] ?? '');
+            $thinkRequest->withHeader($headers);
+            $thinkRequest->withCookie($request->COOKIE);
+            $thinkRequest->withFiles($request->FILES);
+            $thinkRequest->withGet($request->GET);
+            $thinkRequest->withInput($request->CONTENT);
             $thinkResponse = $app->http->run($thinkRequest);
 
             $response->setStatusCode($thinkResponse->getCode());
             $response->headers->add($thinkResponse->getHeader());
+
 
             if ($thinkResponse instanceof File) {
                 $response->setContent(
                     IO::File()->open($thinkResponse->getData(), 'r+')
                 );
             } else {
-                $response->setContent(
-                    $thinkResponse->getData(),
-                    $thinkResponse->getHeader('Content-Type')
-                );
+                $response->setContent($thinkResponse->getData());
             }
             $response->respond();
             $app->delete(Route::class);

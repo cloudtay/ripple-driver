@@ -51,7 +51,7 @@ use function Co\cancelAll;
 use function Co\delay;
 use function Co\onSignal;
 use function Co\repeat;
-use function Co\tick;
+use function Co\wait;
 use function count;
 use function explode;
 use function function_exists;
@@ -299,7 +299,7 @@ class PDrive implements EventInterface
                 Output::error($e->getMessage());
             }
         }
-        tick();
+        wait();
 
         /**
          * 不会再有任何事发生
@@ -307,7 +307,7 @@ class PDrive implements EventInterface
          * Workerman会将结束的进程视为异常然后重启, 循环往复
          */
         while (1) {
-            tick();
+            wait();
             usleep(1);
         }
     }
