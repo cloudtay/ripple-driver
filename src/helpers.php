@@ -32,32 +32,40 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Middleware;
+use Composer\Autoload\ClassLoader;
+use Psc\Drive\Laravel\Coroutine\ContainerMap;
+use Psc\Drive\ThinkPHP\Coroutine\AppMap;
 
-use Closure;
-use Illuminate\Contracts\Container\BindingResolutionException;
-use Illuminate\Http\Request;
-use Illuminate\Routing\Route;
-
-use function app;
-
-class IsolationMiddleware
-{
-    /**
-     * @param Request $request
-     * @param Closure $next
-     *
-     * @return mixed
-     * @throws BindingResolutionException
-     */
-    public function handle(Request $request, Closure $next): mixed
-    {
-        $route = $request->route();
-        if ($route instanceof Route) {
-            if ($controllerClass = $route->getControllerClass()) {
-                $route->controller = app()->make($controllerClass);
+if (! \function_exists('app')) {
+    $composer = new \ReflectionClass(ClassLoader::class);
+    $rootPath = \dirname($composer->getFileName(), 3);
+    if (false) {
+        // @codeCoverageIgnoreStart
+    } elseif (\file_exists("{$rootPath}/artisan")) {
+        /**
+         * @param string|null $abstract
+         * @param array       $parameters
+         *
+         * @return \Closure|\Illuminate\Container\Container|mixed|object|null
+         */
+        function app(string $abstract = null, array $parameters = []): mixed
+        {
+            return ContainerMap::app($abstract, $parameters);
+        }
+    } elseif (\file_exists("{$rootPath}/think")) {
+        if (!\function_exists('app')) {
+            /**
+             * 快速获取容器中的实例 支持依赖注入
+             * @template T
+             * @param string|class-string<T> $name        类名或标识 默认获取当前应用实例
+             * @param array                  $args        参数
+             * @param bool                   $newInstance 是否每次创建新的实例
+             * @return T|object|\think\App
+             */
+            function app(string $name = '', array $args = [], bool $newInstance = false)
+            {
+                return AppMap::app($name, $args, $newInstance);
             }
         }
-        return $next($request);
     }
 }

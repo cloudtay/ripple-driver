@@ -76,7 +76,7 @@ use const SIGTERM;
  * @Author cclilshy
  * @Date   2024/8/17 16:16
  */
-class PDrive extends Command
+class Driver extends Command
 {
     public const DECLARE_OPTIONS = [
         'PRP_HTTP_LISTEN' => 'http://127.0.0.1:8008',
@@ -116,7 +116,6 @@ class PDrive extends Command
      * @param OutputInterface $output
      *
      * @return void
-     * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
     public function initialize(InputInterface $input, OutputInterface $output): void
     {

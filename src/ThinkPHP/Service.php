@@ -57,7 +57,8 @@ class Service extends ThinkPHPService
 
         // 注册终端
         $this->commands([
-            'ripple:server' => PDrive::class
+            'ripple:server' => Driver::class,
+            'p:server'      => Driver::class
         ]);
 
         // 配置项-安全隔离模式

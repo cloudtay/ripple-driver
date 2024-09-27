@@ -32,23 +32,21 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+namespace Psc\Drive\ThinkPHP;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Env;
 use Psc\Core\Stream\Exception\ConnectionException;
 use Psc\Core\Stream\Stream;
 use Psc\Kernel;
-use Psc\Utils\Output;
 use Psc\Utils\Serialization\Zx7e;
 use Psc\Worker\Manager;
 use Revolt\EventLoop\UnsupportedFeatureException;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
+use think\console\Command;
+use think\console\Input;
+use think\console\input\Option;
+use think\console\Output;
+use think\facade\Env;
 
 use function app;
-use function base_path;
-use function boolval;
 use function Co\cancelAll;
 use function Co\onSignal;
 use function Co\wait;
@@ -57,10 +55,12 @@ use function flock;
 use function fopen;
 use function intval;
 use function json_decode;
+use function mkdir;
 use function posix_mkfifo;
+use function root_path;
+use function runtime_path;
 use function shell_exec;
 use function sprintf;
-use function storage_path;
 use function touch;
 use function unlink;
 
@@ -72,36 +72,8 @@ use const SIGINT;
 use const SIGQUIT;
 use const SIGTERM;
 
-/**
- * @Author cclilshy
- * @Date   2024/8/17 16:16
- */
-class PDrive extends Command
+class Driver extends Command
 {
-    public const DECLARE_OPTIONS = [
-        'PRP_HTTP_LISTEN' => 'http://127.0.0.1:8008',
-        'PRP_HTTP_WORKERS' => 4,
-        'PRP_HTTP_RELOAD' => 0,
-        'PRP_HTTP_SANDBOX' => 0,
-        'PRP_HTTP_ISOLATION' => 0,
-    ];
-
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
-    protected $signature = 'ripple:server
-    {action=start : The action to perform ,Support start|stop|reload|status}
-    {--d|daemon : Run the server in the background}';
-
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'start the ripple service';
-
     /*** @var Manager */
     private Manager $manager;
 
@@ -112,73 +84,75 @@ class PDrive extends Command
     private string $controlLockPath;
 
     /**
-     * @param InputInterface  $input
-     * @param OutputInterface $output
-     *
      * @return void
-     * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
-    public function initialize(InputInterface $input, OutputInterface $output): void
+    protected function configure(): void
     {
-        parent::initialize($input, $output);
+        $this->setName('ripple')->setDescription('start the ripple service');
+        $this->addArgument('action', Option::VALUE_REQUIRED, 'start|stop|reload|status', 'start');
+        $this->addOption('daemon', 'd', Option::VALUE_NONE, 'Run the server on the background');
         $this->manager         = app(Manager::class);
-        $this->controlPipePath = storage_path('ripple.pipe');
-        $this->controlLockPath = storage_path('ripple.lock');
+        $this->controlPipePath = runtime_path() . '/ripple.pipe';
+        $this->controlLockPath = runtime_path() . '/ripple.lock';
     }
 
     /**
-     * 运行服务
+     * @param Input  $input
+     * @param Output $output
      *
      * @return void
-     * @throws ConnectionException|UnsupportedFeatureException
+     * @throws UnsupportedFeatureException
+     * @throws ConnectionException
      */
-    public function handle(): void
+    protected function execute(Input $input, Output $output): void
     {
         $zx7e = new Zx7e();
-        switch ($this->argument('action')) {
+        switch ($input->getArgument('action')) {
             case 'start':
-                if (!$this->option('daemon')) {
+                if (!$input->getOption('daemon')) {
                     $this->start();
                     wait();
                 } else {
+                    if (!file_exists(runtime_path('log'))) {
+                        mkdir(runtime_path('log'), 0755, true);
+                    }
                     $command = sprintf(
                         '%s %s ripple:server start > %s &',
                         PHP_BINARY,
-                        base_path('artisan'),
-                        storage_path('logs/ripple.log')
+                        root_path() . 'think',
+                        runtime_path('log') . 'ripple.log'
                     );
                     shell_exec($command);
-                    Output::writeln('server started');
+                    \Psc\Utils\Output::writeln('server started');
                 }
                 exit(0);
             case 'stop':
                 if (!file_exists($this->controlPipePath)) {
-                    Output::warning('The server is not running');
+                    \Psc\Utils\Output::warning('The server is not running');
                     return;
                 }
                 $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
                 $controlStream->write($zx7e->encodeFrame('{"action":"stop"}'));
-                Output::writeln('The server is stopping');
+                \Psc\Utils\Output::writeln('The server is stopping');
                 break;
             case 'reload':
                 if (!file_exists($this->controlPipePath)) {
-                    Output::warning('The server is not running');
+                    \Psc\Utils\Output::warning('The server is not running');
                     return;
                 }
                 $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
                 $controlStream->write($zx7e->encodeFrame('{"action":"reload"}'));
-                Output::writeln('The server is reloading');
+                \Psc\Utils\Output::writeln('The server is reloading');
                 break;
             case 'status':
                 if (!file_exists($this->controlPipePath)) {
-                    Output::writeln('The server is not running');
+                    \Psc\Utils\Output::writeln('The server is not running');
                 } else {
-                    Output::writeln('The server is running');
+                    \Psc\Utils\Output::writeln('The server is running');
                 }
                 break;
             default:
-                Output::warning('Unsupported operation');
-                return;
+                \Psc\Utils\Output::warning('Unsupported operation');
         }
     }
 
@@ -208,15 +182,14 @@ class PDrive extends Command
             touch($this->controlLockPath);
         }
 
-        $zx7e          = new Zx7e();
         $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
-        $controlStream->setBlocking(false);
-
         if (!flock(fopen($this->controlLockPath, 'r'), LOCK_EX | LOCK_NB)) {
-            Output::warning('The server is already running');
+            \Psc\Utils\Output::warning('The server is already running');
             exit(0);
         }
+        $controlStream->setBlocking(false);
 
+        $zx7e = new Zx7e();
         $controlStream->onReadable(function (Stream $controlStream) use ($zx7e) {
             $content = $controlStream->read(1024);
             foreach ($zx7e->decodeStream($content) as $command) {
@@ -235,11 +208,9 @@ class PDrive extends Command
             }
         });
 
-        $listen  = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
-        $count   = intval(Env::get('PRP_HTTP_WORKERS', 4)) ?? 4;
-        $sandbox = boolval(Env::get('PRP_HTTP_SANDBOX', false));
-
-        $this->manager->addWorker(new Worker($listen, $count, $sandbox));
+        $listen = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
+        $count  = intval(Env::get('PRP_HTTP_WORKERS', 4)) ?? 4;
+        $this->manager->addWorker(new Worker($listen, $count));
         $this->manager->run();
     }
 

@@ -32,26 +32,70 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+namespace Psc\Drive\ThinkPHP\Coroutine;
 
-use Illuminate\Http\Request;
-use Psc\Core\Http\Server\RequestFactoryInterface;
+use Fiber;
+use think\App;
+use think\Container;
 
-class RequestFactory implements RequestFactoryInterface
+use function is_null;
+use function spl_object_hash;
+
+class AppMap
 {
+    /*** @var array */
+    private static array $applications = [];
+
     /**
-     * @param array $query
-     * @param array $request
-     * @param array $attributes
-     * @param array $cookies
-     * @param array $files
-     * @param array $server
-     * @param mixed $content
+     * @param App $application
+     *
+     * @return void
+     */
+    public static function bind(App $application): void
+    {
+        if (!$fiber = Fiber::getCurrent()) {
+            return;
+        }
+        AppMap::$applications[spl_object_hash($fiber)] = $application;
+    }
+
+    /**
+     * @return void
+     */
+    public static function unbind(): void
+    {
+        if (!$fiber = Fiber::getCurrent()) {
+            return;
+        }
+        unset(AppMap::$applications[spl_object_hash($fiber)]);
+    }
+
+    /**
+     * @return \think\App|\think\Container
+     */
+    public static function current(): App|Container
+    {
+        if (!$fiber = Fiber::getCurrent()) {
+            return App::getInstance();
+        }
+
+        return AppMap::$applications[spl_object_hash($fiber)] ?? Container::getInstance();
+    }
+
+    /**
+     * @param string $name
+     * @param array  $args
+     * @param bool   $newInstance
      *
      * @return mixed
      */
-    public function __invoke(array $query, array $request, array $attributes, array $cookies, array $files, array $server, mixed $content): mixed
+    public static function app(string $name = '', array $args = [], bool $newInstance = false): mixed
     {
-        return new Request($query, $request, $attributes, $cookies, $files, $server, $content);
+        $container = AppMap::current();
+        if (is_null($name)) {
+            return $container;
+        }
+
+        return $container->make($name ?: App::class, $args, $newInstance);
     }
 }

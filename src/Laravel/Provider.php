@@ -34,13 +34,10 @@
 
 namespace Psc\Drive\Laravel;
 
-use Illuminate\Contracts\Container\BindingResolutionException;
-use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Database\Connection;
-use Illuminate\Support\Env;
 use Illuminate\Support\ServiceProvider;
 use Psc\Drive\Laravel\Coroutine\Database\Factory;
-use Psc\Drive\Laravel\Middleware\IsolationMiddleware;
+use Psc\Drive\Laravel\Coroutine\Database\MySQL\Connection as CoroutineConnection;
 use Psc\Worker\Manager;
 
 use function in_array;
@@ -51,31 +48,19 @@ class Provider extends ServiceProvider
      * Register any application services.
      *
      * @return void
-     * @throws BindingResolutionException
      */
     public function register(): void
     {
-        $this->commands([PDrive::class]);
+        $this->commands([Driver::class, DriverOld::class]);
         $this->app->singleton(Manager::class, static function () {
             return new Manager();
         });
 
-        // 注册服务容器
-        $kernel = $this->app->make(Kernel::class);
-
         // 注册协程数据库
         $this->app->singleton('db.factory', fn () => new Factory($this->app));
         Connection::resolverFor('mysql-amp', static function ($connection, $database, $prefix, $config) {
-            return new Coroutine\Database\MySQL\Connection($connection, $database, $prefix, $config);
+            return new CoroutineConnection($connection, $database, $prefix, $config);
         });
-
-        // 配置项: 安全隔离模式
-        $PRP_HTTP_ISOLATION = Env::get('PRP_HTTP_ISOLATION');
-
-        if ($this->isTrue($PRP_HTTP_ISOLATION)) {
-            $kernel->appendMiddlewareToGroup('web', IsolationMiddleware::class);
-            $kernel->appendMiddlewareToGroup('api', IsolationMiddleware::class);
-        }
     }
 
     /**

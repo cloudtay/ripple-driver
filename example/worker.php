@@ -33,7 +33,7 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-use P\Net;
+use Co\Net;
 use Psc\Core\WebSocket\Server\Connection;
 use Psc\Core\WebSocket\Server\Server;
 use Psc\Worker\Command;
