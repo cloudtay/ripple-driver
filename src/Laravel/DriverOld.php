@@ -32,19 +32,45 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Events;
+namespace Psc\Drive\Laravel;
 
-use Illuminate\Foundation\Application;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Console\Command;
 
-class RequestHandled
+/**
+ * @Author cclilshy
+ * @Date   2024/8/17 16:16
+ */
+class DriverOld extends Command
 {
-    public function __construct(
-        public Application $app,
-        public Application $sandbox,
-        public Request $request,
-        public Response $response
-    ) {
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'p:server
+    {action=start : The action to perform ,Support start|stop|reload|status}
+    {--d|daemon : Run the server in the background}';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'start the ripple service';
+
+    /**
+     * @Author cclilshy
+     * @Date   2024/9/29 14:23
+     * @return void
+     */
+    public function handle(): void
+    {
+        $this->warn('This command will be removed in versions after V0.6');
+        $this->warn('Please use ripple:server command');
+
+        $this->call('ripple:server', [
+            'action'   => $this->argument('action'),
+            '--daemon' => $this->option('daemon')
+        ]);
     }
 }

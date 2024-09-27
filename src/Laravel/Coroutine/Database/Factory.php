@@ -44,6 +44,7 @@ use Illuminate\Database\PostgresConnection;
 use Illuminate\Database\SQLiteConnection;
 use Illuminate\Database\SqlServerConnection;
 use PDO;
+use Psc\Drive\Laravel\Coroutine\Database\MySQL\Connector;
 
 class Factory extends ConnectionFactory
 {
@@ -56,7 +57,7 @@ class Factory extends ConnectionFactory
     {
         return match ($config['driver']) {
             // Coroutine MySQL connector
-            'mysql-amp' => new MySQL\Connector(),
+            'mysql-amp' => new Connector(),
 
             // Coroutine MySQL connector
             default     => parent::createConnector($config)

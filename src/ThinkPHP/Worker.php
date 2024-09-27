@@ -38,8 +38,9 @@ use Co\IO;
 use Co\Net;
 use JetBrains\PhpStorm\NoReturn;
 use Psc\Core\Http\Server\Request;
-use Psc\Core\Http\Server\Server as HttpServer;
+use Psc\Core\Http\Server\Server;
 use Psc\Drive\Utils\Console;
+use Psc\Kernel;
 use Psc\Utils\Output;
 use Psc\Worker\Command;
 use Psc\Worker\Manager;
@@ -67,7 +68,6 @@ use function stream_context_create;
 use function strtolower;
 use function substr;
 
-use const PHP_OS_FAMILY;
 use const STDOUT;
 
 /**
@@ -79,9 +79,9 @@ class Worker extends \Psc\Worker\Worker
     use Console;
 
     /**
-     * @var HttpServer
+     * @var Server
      */
-    private HttpServer $httpServer;
+    private Server $server;
 
     /**
      * @param string $address
@@ -92,6 +92,8 @@ class Worker extends \Psc\Worker\Worker
     }
 
     /**
+     * 注册服务流程,监听端口,发生于主进程中
+     *
      * @Author cclilshy
      * @Date   2024/8/16 23:34
      *
@@ -106,14 +108,19 @@ class Worker extends \Psc\Worker\Worker
 
         app()->bind(Worker::class, fn () => $this);
 
-        $context          = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
-        $this->httpServer = Net::Http()->server($this->address, $context);
+        $context = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
+        $server  = Net::Http()->server($this->address, $context);
+        if (!$server instanceof Server) {
+            Output::error('Server not supported');
+            exit(1);
+        }
+        $this->server = $server;
         fwrite(STDOUT, $this->formatRow(['Worker', $this->getName()]));
         fwrite(STDOUT, $this->formatRow(['Listen', $this->address]));
         fwrite(STDOUT, $this->formatRow(["Workers", $this->count]));
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
-
+        // 热重载监听文件改动
         if (in_array(Env::get('PHP_HOT_RELOAD'), ['true', '1', 'on', true, 1], true)) {
             $monitor = IO::File()->watch();
             $monitor->add(root_path() . '/app');
@@ -155,6 +162,8 @@ class Worker extends \Psc\Worker\Worker
     }
 
     /**
+     * 子进程启动流程,发生于子进程中
+     *
      * @Author cclilshy
      * @Date   2024/8/17 11:08
      * @return void
@@ -166,7 +175,7 @@ class Worker extends \Psc\Worker\Worker
         fwrite(STDOUT, sprintf(
             "Worker %s@%d started.\n",
             $this->getName(),
-            PHP_OS_FAMILY === 'Windows' ? getmypid() : posix_getpid()
+            Kernel::getInstance()->supportProcessControl() ? getmypid() : posix_getpid()
         ));
 
         /*** register loop timer*/
@@ -177,11 +186,12 @@ class Worker extends \Psc\Worker\Worker
         $app = new App();
         $app->bind(Worker::class, fn () => $this);
 
-        $this->httpServer->onRequest(static function (
-            Request  $request
+        $this->server->onRequest(static function (
+            Request $request
         ) use ($app) {
             $response = $request->getResponse();
 
+            // Construct tp request object based on ripple/request meta information
             $headers = [];
             foreach ($request->SERVER as $key => $value) {
                 if (str_starts_with($key, 'HTTP_')) {
@@ -200,23 +210,23 @@ class Worker extends \Psc\Worker\Worker
             $thinkRequest->withFiles($request->FILES);
             $thinkRequest->withGet($request->GET);
             $thinkRequest->withInput($request->CONTENT);
+
+            # 交由think-app处理请求
             $thinkResponse = $app->http->run($thinkRequest);
 
             $response->setStatusCode($thinkResponse->getCode());
             $response->headers->add($thinkResponse->getHeader());
 
-
+            # 根据响应类型处理响应内容
             if ($thinkResponse instanceof File) {
-                $response->setContent(
-                    IO::File()->open($thinkResponse->getData(), 'r+')
-                );
+                $response->setContent(IO::File()->open($thinkResponse->getData(), 'r+'));
             } else {
                 $response->setContent($thinkResponse->getData());
             }
             $response->respond();
             $app->delete(Route::class);
         });
-        $this->httpServer->listen();
+        $this->server->listen();
     }
 
     /**

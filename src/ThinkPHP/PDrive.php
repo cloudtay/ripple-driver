@@ -85,6 +85,7 @@ class PDrive extends Command
 
     /**
      * @return void
+     * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
     protected function configure(): void
     {
@@ -209,7 +210,7 @@ class PDrive extends Command
         });
 
         $listen = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
-        $count  = intval(Env::get('PRP_HTTP_COUNT', 4)) ?? 4;
+        $count  = intval(Env::get('PRP_HTTP_WORKERS', 4)) ?? 4;
         $this->manager->addWorker(new Worker($listen, $count));
         $this->manager->run();
     }

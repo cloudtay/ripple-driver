@@ -41,11 +41,12 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Env;
 use JetBrains\PhpStorm\NoReturn;
 use Psc\Core\Http\Server\Request;
-use Psc\Core\Http\Server\Server as HttpServer;
+use Psc\Core\Http\Server\Server;
 use Psc\Drive\Laravel\Events\RequestHandled;
 use Psc\Drive\Laravel\Events\RequestReceived;
 use Psc\Drive\Laravel\Events\RequestTerminated;
 use Psc\Drive\Laravel\Events\WorkerErrorOccurred;
+use Psc\Drive\Laravel\Response\GeneratorResponse;
 use Psc\Drive\Laravel\Traits\DispatchesEvents;
 use Psc\Drive\Utils\Console;
 use Psc\Utils\Output;
@@ -74,10 +75,10 @@ class Worker extends \Psc\Worker\Worker
     use Console;
     use DispatchesEvents;
 
-    /*** @var HttpServer */
-    private HttpServer $httpServer;
+    /*** @var Server */
+    private Server $server;
 
-    /*** @var \Illuminate\Foundation\Application */
+    /*** @var Application */
     private Application $application;
 
     /**
@@ -88,7 +89,7 @@ class Worker extends \Psc\Worker\Worker
     public function __construct(
         private readonly string $address = 'http://127.0.0.1:8008',
         private readonly int    $count = 4,
-        private readonly bool   $sandbox = false,
+        private readonly bool   $sandbox = true,
     ) {
     }
 
@@ -110,15 +111,20 @@ class Worker extends \Psc\Worker\Worker
 
         /*** output env*/
         fwrite(STDOUT, $this->formatRow(["- Conf"]));
-        foreach (PDrive::DECLARE_OPTIONS as $key => $value) {
+        foreach (Driver::DECLARE_OPTIONS as $key => $value) {
             fwrite(STDOUT, $this->formatRow(["{$key}", Env::get($key, $value) ?: 'off']));
         }
 
         /*** output logs*/
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
-        $context          = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
-        $this->httpServer = Net::Http()->server($this->address, $context);
+        $context = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
+        $server  = Net::Http()->server($this->address, $context);
+        if (!$server instanceof Server) {
+            Output::error('Server not supported');
+            exit(1);
+        }
+        $this->server = $server;
 
         $this->application = Application::getInstance();
 
@@ -174,16 +180,10 @@ class Worker extends \Psc\Worker\Worker
 
         $this->application->bind(Worker::class, fn () => $this);
 
-        $this->httpServer->onRequest(function (
+        $this->server->onRequest(function (
             Request $request
         ) {
-            if ($this->application->bound('session')) {
-                $this->application->make('session')->forgetDrivers();
-                $this->application->forgetInstance('session.store');
-            }
-
             $application = $this->sandbox ? clone $this->application : $this->application;
-
             /*** @var Kernel $kernel */
             $kernel = $application->make(Kernel::class);
 
@@ -196,15 +196,12 @@ class Worker extends \Psc\Worker\Worker
                 $request->SERVER,
                 $request->CONTENT,
             );
-
             $laravelRequest->attributes->set('ripple.request', $request);
-
-            $response = $request->getResponse();
+            $this->dispatchEvent($application, new RequestReceived($this->application, $application, $laravelRequest));
 
             try {
-                $this->dispatchEvent($application, new RequestReceived($this->application, $application, $laravelRequest));
-
                 $laravelResponse = $kernel->handle($laravelRequest);
+                $response = $request->getResponse();
                 $response->setStatusCode($laravelResponse->getStatusCode());
                 $response->setProtocolVersion($laravelResponse->getProtocolVersion());
                 $response->headers->add($laravelResponse->headers->all());
@@ -230,7 +227,7 @@ class Worker extends \Psc\Worker\Worker
                 unset($laravelRequest, $response, $laravelResponse, $kernel);
             }
         });
-        $this->httpServer->listen();
+        $this->server->listen();
     }
 
     /**

@@ -32,25 +32,71 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\ThinkPHP;
+namespace Psc\Drive\Laravel\Coroutine;
 
-use Psc\Core\Http\Server\RequestFactoryInterface;
+use Fiber;
+use Illuminate\Container\Container;
 
-class RequestFactory implements RequestFactoryInterface
+use function app;
+use function spl_object_hash;
+use function is_null;
+
+class ContainerMap
 {
+    /*** @var array */
+    private static array $applications = [];
+
     /**
-     * @param array $query
-     * @param array $request
-     * @param array $attributes
-     * @param array $cookies
-     * @param array $files
-     * @param array $server
-     * @param mixed $content
+     * @param \Illuminate\Container\Container $application
+     *
+     * @return void
+     */
+    public static function bind(Container $application): void
+    {
+        if (!$fiber = Fiber::getCurrent()) {
+            return;
+        }
+        ContainerMap::$applications[spl_object_hash($fiber)] = $application;
+    }
+
+    /**
+     * @return void
+     */
+    public static function unbind(): void
+    {
+        if (!$fiber = Fiber::getCurrent()) {
+            return;
+        }
+        unset(ContainerMap::$applications[spl_object_hash($fiber)]);
+    }
+
+    /**
+     * @return \Illuminate\Container\Container
+     * @throws \Illuminate\Contracts\Container\BindingResolutionException
+     */
+    public static function current(): Container
+    {
+        if (!$fiber = Fiber::getCurrent()) {
+            return Container::getInstance();
+        }
+
+        return ContainerMap::$applications[spl_object_hash($fiber)] ?? app();
+    }
+
+    /**
+     * @param string|null $abstract
+     * @param array       $parameters
      *
      * @return mixed
+     * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
-    public function __invoke(array $query, array $request, array $attributes, array $cookies, array $files, array $server, mixed $content): mixed
+    public static function app(string $abstract = null, array $parameters = []): mixed
     {
-        return false;
+        $container = ContainerMap::current();
+        if (is_null($abstract)) {
+            return $container;
+        }
+
+        return $container->make($abstract, $parameters);
     }
 }

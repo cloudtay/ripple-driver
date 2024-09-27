@@ -37,11 +37,11 @@
  * 20240807补充 config/coroutine.php
  */
 
-use Psc\Drive\Workerman\PDrive;
+use Psc\Drive\Workerman\Driver;
 
 return [
     // server.php 配置文件
     'server' => [
-        'event_loop' => PDrive::class,
+        'event_loop' => Driver::class,
     ]
 ];
