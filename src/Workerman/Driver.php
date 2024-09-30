@@ -58,6 +58,7 @@ use function explode;
 use function function_exists;
 use function get_resource_id;
 use function getmypid;
+use function int2string;
 use function intval;
 use function is_array;
 use function is_string;
@@ -66,6 +67,7 @@ use function posix_getpid;
 use function pow;
 use function sleep;
 use function str_contains;
+use function string2int;
 use function strlen;
 
 class Driver implements EventInterface
@@ -124,8 +126,8 @@ class Driver implements EventInterface
 
                     // 注册信号处理器
                     $id                     = onSignal($fd, $closure);
-                    $this->_signal2ids[$fd] = $this->string2int($id);
-                    return $this->string2int($id);
+                    $this->_signal2ids[$fd] = string2int($id);
+                    return string2int($id);
                 } catch (Throwable) {
                     return false;
                 }
@@ -140,7 +142,7 @@ class Driver implements EventInterface
                     }
                 }, $fd);
 
-                return $this->string2int($timerId);
+                return string2int($timerId);
 
             case EventInterface::EV_TIMER_ONCE:
                 // 一次性定时器
@@ -152,7 +154,7 @@ class Driver implements EventInterface
                     }
                 }, $fd);
 
-                return $this->string2int($timerId);
+                return string2int($timerId);
 
             case EventInterface::EV_READ:
                 // 读事件
@@ -161,8 +163,8 @@ class Driver implements EventInterface
                     $func($stream->stream);
                 });
 
-                $this->_fd2ids[$stream->id][] = $this->string2int($eventId);
-                return $this->string2int($eventId);
+                $this->_fd2ids[$stream->id][] = string2int($eventId);
+                return string2int($eventId);
 
             case EventInterface::EV_WRITE:
                 // 写事件
@@ -171,8 +173,8 @@ class Driver implements EventInterface
                     $func($stream->stream);
                 });
 
-                $this->_fd2ids[$stream->id][] = $this->string2int($eventId);
-                return $this->string2int($eventId);
+                $this->_fd2ids[$stream->id][] = string2int($eventId);
+                return string2int($eventId);
         }
         return false;
     }
@@ -244,7 +246,7 @@ class Driver implements EventInterface
      */
     private function cancel(int $id): void
     {
-        cancel($this->int2string($id));
+        cancel(int2string($id));
     }
 
     /**
@@ -288,7 +290,7 @@ class Driver implements EventInterface
             Driver::$baseProcessId = (Kernel::getInstance()->supportProcessControl() ? getmypid() : posix_getpid());
             try {
                 cancelAll();
-                System::Process()->forked();
+                System::Process()->forkedTick();
             } catch (UnsupportedFeatureException $e) {
                 Output::error($e->getMessage());
             }

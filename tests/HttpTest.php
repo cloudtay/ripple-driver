@@ -40,7 +40,7 @@ use PHPUnit\Framework\TestCase;
 use Throwable;
 
 use function Co\cancelAll;
-use function Co\tick;
+use function Co\wait;
 use function intval;
 
 class HttpTest extends TestCase
@@ -74,6 +74,6 @@ class HttpTest extends TestCase
 
         cancelAll();
 
-        tick();
+        wait();
     }
 }
