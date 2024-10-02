@@ -72,7 +72,6 @@ class ContainerMap
 
     /**
      * @return \Illuminate\Container\Container
-     * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
     public static function current(): Container
     {
@@ -80,7 +79,7 @@ class ContainerMap
             return Container::getInstance();
         }
 
-        return ContainerMap::$applications[spl_object_hash($fiber)] ?? app();
+        return ContainerMap::$applications[spl_object_hash($fiber)] ?? Container::getInstance();
     }
 
     /**
