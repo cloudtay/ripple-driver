@@ -223,8 +223,13 @@ class Driver extends Command
     {
         cancelAll();
         $this->manager->stop();
+
         if (file_exists($this->controlPipePath)) {
             unlink($this->controlPipePath);
+        }
+
+        if (file_exists($this->controlLockPath)) {
+            unlink($this->controlLockPath);
         }
     }
 }

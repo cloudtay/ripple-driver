@@ -38,13 +38,9 @@ use Fiber;
 use Illuminate\Container\Container;
 
 use function is_null;
-use function spl_object_hash;
 
 class ContainerMap
 {
-    /*** @var array */
-    private static array $applications = [];
-
     /**
      * @param \Illuminate\Container\Container $application
      *
@@ -52,10 +48,7 @@ class ContainerMap
      */
     public static function bind(Container $application): void
     {
-        if (!$fiber = Fiber::getCurrent()) {
-            return;
-        }
-        ContainerMap::$applications[spl_object_hash($fiber)] = $application;
+        \Co\container()->set(Container::class, $application);
     }
 
     /**
@@ -63,10 +56,7 @@ class ContainerMap
      */
     public static function unbind(): void
     {
-        if (!$fiber = Fiber::getCurrent()) {
-            return;
-        }
-        unset(ContainerMap::$applications[spl_object_hash($fiber)]);
+        \Co\container()->set(Container::class, null);
     }
 
     /**
@@ -74,11 +64,11 @@ class ContainerMap
      */
     public static function current(): Container
     {
-        if (!$fiber = Fiber::getCurrent()) {
+        if (!Fiber::getCurrent()) {
             return Container::getInstance();
         }
 
-        return ContainerMap::$applications[spl_object_hash($fiber)] ?? Container::getInstance();
+        return \Co\container()->get(Container::class) ?? Container::getInstance();
     }
 
     /**

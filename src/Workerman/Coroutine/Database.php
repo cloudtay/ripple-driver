@@ -41,7 +41,7 @@ use Illuminate\Events\Dispatcher;
 use Illuminate\Pagination\Cursor;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\Paginator;
-use Psc\Drive\ThinkPHP\Coroutine\Factory;
+use Psc\Drive\Laravel\Coroutine\Database\Factory;
 
 use function class_exists;
 use function config;

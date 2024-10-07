@@ -39,13 +39,9 @@ use think\App;
 use think\Container;
 
 use function is_null;
-use function spl_object_hash;
 
 class AppMap
 {
-    /*** @var array */
-    private static array $applications = [];
-
     /**
      * @param App $application
      *
@@ -53,10 +49,7 @@ class AppMap
      */
     public static function bind(App $application): void
     {
-        if (!$fiber = Fiber::getCurrent()) {
-            return;
-        }
-        AppMap::$applications[spl_object_hash($fiber)] = $application;
+        \Co\container()->set(App::class, $application);
     }
 
     /**
@@ -64,10 +57,7 @@ class AppMap
      */
     public static function unbind(): void
     {
-        if (!$fiber = Fiber::getCurrent()) {
-            return;
-        }
-        unset(AppMap::$applications[spl_object_hash($fiber)]);
+        \Co\container()->set(App::class, null);
     }
 
     /**
@@ -75,11 +65,11 @@ class AppMap
      */
     public static function current(): App|Container
     {
-        if (!$fiber = Fiber::getCurrent()) {
+        if (!Fiber::getCurrent()) {
             return App::getInstance();
         }
 
-        return AppMap::$applications[spl_object_hash($fiber)] ?? Container::getInstance();
+        return \Co\container()->get(App::class) ?? App::getInstance();
     }
 
     /**

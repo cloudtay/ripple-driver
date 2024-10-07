@@ -211,7 +211,7 @@ class Driver extends Command
         $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
         $controlStream->setBlocking(false);
 
-        if (!flock(fopen($this->controlLockPath, 'r'), LOCK_EX | LOCK_NB)) {
+        if (!flock(fopen($this->controlLockPath, 'r+'), LOCK_EX | LOCK_NB)) {
             Output::warning('The server is already running');
             exit(0);
         }

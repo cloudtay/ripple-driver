@@ -60,12 +60,6 @@ class Service extends ThinkPHPService
             'ripple:server' => Driver::class,
             'p:server'      => Driver::class
         ]);
-
-        // 配置项-安全隔离模式
-        //        $PRP_ISOLATION = Env::get('PRP_ISOLATION');
-        //        if ($this->isTrue($PRP_ISOLATION)) {
-        //            $this->app->middleware->add(IsolationMiddleware::class);
-        //        }
     }
 
     /**
