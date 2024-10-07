@@ -40,6 +40,7 @@ use Psc\Drive\Laravel\Coroutine\Database\Factory;
 use Psc\Drive\Laravel\Coroutine\Database\MySQL\Connection as CoroutineConnection;
 use Psc\Worker\Manager;
 
+use function config_path;
 use function in_array;
 
 class Provider extends ServiceProvider
@@ -61,6 +62,16 @@ class Provider extends ServiceProvider
         Connection::resolverFor('mysql-amp', static function ($connection, $database, $prefix, $config) {
             return new CoroutineConnection($connection, $database, $prefix, $config);
         });
+    }
+
+    /**
+     * @return void
+     */
+    public function boot(): void
+    {
+        $this->publishes([
+            __DIR__.'/config/ripple.php' => config_path('ripple.php'),
+        ], 'ripple-config');
     }
 
     /**

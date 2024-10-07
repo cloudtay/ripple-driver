@@ -32,7 +32,7 @@ jobs:
           composer install
           composer create-project topthink/think thinkphp-app
 
-      - name: 安装引擎 (Initialize PRipple)
+      - name: 安装引擎 (Initialize ripple)
         working-directory: thinkphp-app
         run: |
           composer config repositories.local '{"type": "path", "url": "../"}'

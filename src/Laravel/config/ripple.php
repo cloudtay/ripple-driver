@@ -32,64 +32,11 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Coroutine;
+use Illuminate\Support\Env;
 
-use Fiber;
-use Illuminate\Container\Container;
-
-use function is_null;
-use function spl_object_hash;
-
-class ContainerMap
-{
-    /*** @var array */
-    private static array $reference = [];
-
-    /**
-     * @param \Illuminate\Container\Container $application
-     *
-     * @return void
-     */
-    public static function bind(Container $application): void
-    {
-        ContainerMap::$reference[spl_object_hash(Fiber::getCurrent())] = $container = \Co\container();
-        $container->set(Container::class, $application);
-    }
-
-    /**
-     * @return void
-     */
-    public static function unbind(): void
-    {
-        unset(ContainerMap::$reference[spl_object_hash(Fiber::getCurrent())]);
-    }
-
-    /**
-     * @return \Illuminate\Container\Container
-     */
-    public static function current(): Container
-    {
-        if (!Fiber::getCurrent()) {
-            return Container::getInstance();
-        }
-
-        return \Co\container()->get(Container::class) ?? Container::getInstance();
-    }
-
-    /**
-     * @param string|null $abstract
-     * @param array       $parameters
-     *
-     * @return mixed
-     * @throws \Illuminate\Contracts\Container\BindingResolutionException
-     */
-    public static function app(string $abstract = null, array $parameters = []): mixed
-    {
-        $container = ContainerMap::current();
-        if (is_null($abstract)) {
-            return $container;
-        }
-
-        return $container->make($abstract, $parameters);
-    }
-}
+return [
+    'HTTP_LISTEN'  => Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008'),
+    'HTTP_WORKERS' => Env::get('PRP_HTTP_WORKERS', 4),
+    'HTTP_RELOAD'  => Env::get('PRP_HTTP_RELOAD', 0),
+    'HTTP_SANDBOX' => Env::get('PRP_HTTP_SANDBOX', 1),
+];

@@ -8,15 +8,15 @@
 <a href="https://packagist.org/packages/cclilshy/p-ripple-core"><img src="https://img.shields.io/packagist/l/cclilshy/p-ripple-core" alt="License"></a>
 </p>
 <p>
-PRipple是一个现代化的、高性能的原生PHP协程框架，旨在解决PHP在高并发、复杂网络通信和数据操作方面的挑战。
+ripple是一个现代化的、高性能的原生PHP协程框架，旨在解决PHP在高并发、复杂网络通信和数据操作方面的挑战。
 该框架采用创新的架构和高效的编程模型，为现代 Web 和 Web 应用程序提供强大而灵活的后端支持。
-通过使用 PRipple，你将体验到从系统全局视图管理任务并高效处理网络流量和数据的优势。 </p>
+通过使用 ripple，你将体验到从系统全局视图管理任务并高效处理网络流量和数据的优势。 </p>
 <p align="center">
-    <a href="https://github.com/cloudtay/p-ripple-core/blob/main/README.en.md">English</a>
+    <a href="https://github.com/cloudtay/ripple/blob/main/README.en.md">English</a>
     ·
-    <a href="https://github.com/cloudtay/p-ripple-core/blob/main/README.md">简体中文</a>
+    <a href="https://github.com/cloudtay/ripple/blob/main/README.md">简体中文</a>
     ·
-    <a href="https://github.com/cloudtay/p-ripple-core/issues">提交漏洞 »</a>
+    <a href="https://github.com/cloudtay/ripple/issues">提交漏洞 »</a>
 </p>
 
 ### 安装
@@ -27,11 +27,11 @@ composer require cclilshy/p-ripple-drive
 
 ### 开始学习
 
-你可以访问PRipple的[文档](https://p-ripple.cloudtay.com/)开始阅读
+你可以访问ripple的[文档](https://p-ripple.cloudtay.com/)开始阅读
 
-我们建议你从[手动安装](https://p-ripple.cloudtay.com/docs/install/professional)开始, 便于更好地理解PRipple的工作流程
+我们建议你从[手动安装](https://p-ripple.cloudtay.com/docs/install/professional)开始, 便于更好地理解ripple的工作流程
 
-如果你想快速部署并使用PRipple的服务，你可以直接访问[快速部署](https://p-ripple.cloudtay.com/docs/install/server)
+如果你想快速部署并使用ripple的服务，你可以直接访问[快速部署](https://p-ripple.cloudtay.com/docs/install/server)
 
 ### 相关项目
 
@@ -45,19 +45,8 @@ composer require cclilshy/p-ripple-drive
 
 ### 特别致谢
 
-<a href="https://www.jetbrains.com/?from=p-ripple-core" target="__blank">
+<a href="https://www.jetbrains.com/?from=ripple" target="__blank">
     <img src="https://www.jetbrains.com/company/brand/img/jetbrains_logo.png" width="200">
 </a>
 
-[Jetbrains](https://www.jetbrains.com/?from=p-ripple-core) 为本项目提供了免费的开发工具
-
-### 联系方式
-
-`电邮` jingnigg@gmail.com
-
-`微信` jingnigg
-
-| 群聊直通车                                                                                                               | 作者微信(邀请入群)                                                                                                          |
-|---------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
-| <img src="https://cdn.learnku.com/uploads/images/202408/26/114411/Dwy8v4gzjL.jpg!large" width="200" height="200" /> | <img src="https://cdn.learnku.com/uploads/images/202408/26/114411/h2nOpetJb0.jpg!large" width="200" height="200" /> |
-
+[Jetbrains](https://www.jetbrains.com/?from=ripple) 为本项目提供了免费的开发工具

@@ -38,7 +38,7 @@ use Co\IO;
 use Co\Net;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Application;
-use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Config;
 use JetBrains\PhpStorm\NoReturn;
 use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Server;
@@ -112,7 +112,7 @@ class Worker extends \Psc\Worker\Worker
         /*** output env*/
         fwrite(STDOUT, $this->formatRow(["- Conf"]));
         foreach (Driver::DECLARE_OPTIONS as $key => $value) {
-            fwrite(STDOUT, $this->formatRow(["{$key}", Env::get($key, $value) ?: 'off']));
+            fwrite(STDOUT, $this->formatRow(["{$key}", Config::get("ripple.{$key}", $value) ?: 'off']));
         }
 
         /*** output logs*/
@@ -128,7 +128,7 @@ class Worker extends \Psc\Worker\Worker
 
         $this->application = Application::getInstance();
 
-        if (in_array(Env::get('PRP_HTTP_RELOAD'), ['true', '1', 'on', true, 1], true)) {
+        if (in_array(Config::get('ripple.HTTP_RELOAD'), ['true', '1', 'on', true, 1], true)) {
             $monitor = IO::File()->watch();
             $monitor->add(base_path('app'));
             $monitor->add(base_path('bootstrap'));

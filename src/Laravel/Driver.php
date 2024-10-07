@@ -35,7 +35,7 @@
 namespace Psc\Drive\Laravel;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Config;
 use Psc\Core\Stream\Exception\ConnectionException;
 use Psc\Core\Stream\Stream;
 use Psc\Kernel;
@@ -79,11 +79,11 @@ use const SIGTERM;
 class Driver extends Command
 {
     public const DECLARE_OPTIONS = [
-        'PRP_HTTP_LISTEN' => 'http://127.0.0.1:8008',
-        'PRP_HTTP_WORKERS' => 4,
-        'PRP_HTTP_RELOAD' => 0,
-        'PRP_HTTP_SANDBOX' => 0,
-        'PRP_HTTP_ISOLATION' => 0,
+        'HTTP_LISTEN' => 'http://127.0.0.1:8008',
+        'HTTP_WORKERS' => 4,
+        'HTTP_RELOAD' => 0,
+        'HTTP_SANDBOX' => 0,
+        'HTTP_ISOLATION' => 0,
     ];
 
     /**
@@ -234,9 +234,9 @@ class Driver extends Command
             }
         });
 
-        $listen  = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
-        $count   = intval(Env::get('PRP_HTTP_WORKERS', 4)) ?? 4;
-        $sandbox = boolval(Env::get('PRP_HTTP_SANDBOX', false));
+        $listen  = Config::get('ripple.HTTP_LISTEN', 'http://127.0.0.1:8008');
+        $count   = intval(Config::get('ripple.HTTP_WORKERS', 4));
+        $sandbox = boolval(Config::get('ripple.HTTP_SANDBOX', 1));
 
         $this->manager->addWorker(new Worker($listen, $count, $sandbox));
         $this->manager->run();

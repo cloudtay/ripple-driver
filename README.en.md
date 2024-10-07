@@ -8,9 +8,9 @@
 <a href="https://packagist.org/packages/cclilshy/p-ripple-core"><img src="https://img.shields.io/packagist/l/cclilshy/p-ripple-core " alt="License"></a>
 </p>
 <p>
-PRipple is a modern, high-performance native PHP coroutine framework designed to solve PHP's challenges in high concurrency, complex network communication and data operations.
+ripple is a modern, high-performance native PHP coroutine framework designed to solve PHP's challenges in high concurrency, complex network communication and data operations.
 The framework uses an innovative architecture and efficient programming model to provide powerful and flexible backend support for modern web and web applications.
-By using PRipple, you will experience the advantages of managing tasks from a global view of the system and efficiently handling network traffic and data. </p>
+By using ripple, you will experience the advantages of managing tasks from a global view of the system and efficiently handling network traffic and data. </p>
 <p align="center">
     <a href="https://github.com/cloudtay/p-ripple-core/blob/main/README.en.md">English</a>
     ·
@@ -27,12 +27,12 @@ composer require cclilshy/p-ripple-drive
 
 ### Start learning
 
-You can visit PRipple’s [Documentation](https://p-ripple.cloudtay.com/) to start reading
+You can visit ripple’s [Documentation](https://p-ripple.cloudtay.com/) to start reading
 
 We recommend that you start with [Manual Installation](https://p-ripple.cloudtay.com/docs/install/professional) to
-better understand PRipple’s workflow
+better understand ripple’s workflow
 
-If you want to quickly deploy and use PRipple's services, you can directly
+If you want to quickly deploy and use ripple's services, you can directly
 visit [Quick Deployment](https://p-ripple.cloudtay.com/docs/install/server)
 
 ### Related projects
