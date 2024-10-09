@@ -215,7 +215,9 @@ class Worker extends \Psc\Worker\Worker
             $thinkResponse = $app->http->run($thinkRequest);
 
             $response->setStatusCode($thinkResponse->getCode());
-            $response->headers->add($thinkResponse->getHeader());
+            foreach ($thinkResponse->getHeader() as $key => $value) {
+                $response->setHeader($key, $value);
+            }
 
             # 根据响应类型处理响应内容
             if ($thinkResponse instanceof File) {

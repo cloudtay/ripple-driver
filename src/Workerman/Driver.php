@@ -46,7 +46,6 @@ use Workerman\Worker;
 
 use function call_user_func;
 use function call_user_func_array;
-use function chr;
 use function Co\cancel;
 use function Co\cancelAll;
 use function Co\delay;
@@ -59,16 +58,13 @@ use function function_exists;
 use function get_resource_id;
 use function getmypid;
 use function int2string;
-use function intval;
 use function is_array;
 use function is_string;
-use function ord;
 use function posix_getpid;
-use function pow;
 use function sleep;
 use function str_contains;
 use function string2int;
-use function strlen;
+use function array_search;
 
 class Driver implements EventInterface
 {
@@ -181,24 +177,6 @@ class Driver implements EventInterface
 
     /**
      * @Author cclilshy
-     * @Date   2024/8/27 21:57
-     *
-     * @param string $string
-     *
-     * @return int
-     */
-    private function string2int(string $string): int
-    {
-        $len = strlen($string);
-        $sum = 0;
-        for ($i = 0; $i < $len; $i++) {
-            $sum += (ord($string[$i]) - 96) * pow(26, $len - $i - 1);
-        }
-        return $sum;
-    }
-
-    /**
-     * @Author cclilshy
      * @Date   2024/8/27 22:00
      *
      * @param $fd
@@ -211,6 +189,7 @@ class Driver implements EventInterface
         if ($flag === EventInterface::EV_TIMER || $flag === EventInterface::EV_TIMER_ONCE) {
             // 取消定时器
             $this->cancel($fd);
+            unset($this->_timer[array_search(int2string($fd), $this->_timer)]);
             return;
         }
 
@@ -247,24 +226,6 @@ class Driver implements EventInterface
     private function cancel(int $id): void
     {
         cancel(int2string($id));
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/27 21:57
-     *
-     * @param int $int
-     *
-     * @return string
-     */
-    private function int2string(int $int): string
-    {
-        $string = '';
-        while ($int > 0) {
-            $string = chr(($int - 1) % 26 + 97) . $string;
-            $int    = intval(($int - 1) / 26);
-        }
-        return $string;
     }
 
     /**

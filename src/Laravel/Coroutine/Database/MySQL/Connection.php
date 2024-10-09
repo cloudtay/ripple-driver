@@ -72,9 +72,8 @@ class Connection extends MySqlConnection
 
     /*** @var MysqlConnectionPool */
     private MysqlConnectionPool $pool;
-    /**
-     * @var MysqlTransaction[]
-     */
+
+    /*** @var MysqlTransaction[] */
     private array $fiber2transaction = [];
 
     /**
