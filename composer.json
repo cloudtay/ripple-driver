@@ -23,7 +23,7 @@
     "ext-posix": "*",
     "ext-sockets": "*",
     "ext-pdo": "*",
-    "cclilshy/p-ripple-core": "^0.6.5"
+    "cclilshy/p-ripple-core": "dev-main"
   },
   "require-dev": {
     "amphp/mysql": "^3.0",
