@@ -34,14 +34,10 @@
 
 namespace Psc\Drive\Laravel;
 
-use Illuminate\Database\Connection;
 use Illuminate\Support\ServiceProvider;
-use Psc\Drive\Laravel\Coroutine\Database\Factory;
-use Psc\Drive\Laravel\Coroutine\Database\MySQL\Connection as CoroutineConnection;
 use Psc\Worker\Manager;
 
 use function config_path;
-use function in_array;
 
 class Provider extends ServiceProvider
 {
@@ -56,12 +52,6 @@ class Provider extends ServiceProvider
         $this->app->singleton(Manager::class, static function () {
             return new Manager();
         });
-
-        // 注册协程数据库
-        $this->app->singleton('db.factory', fn () => new Factory($this->app));
-        Connection::resolverFor('mysql-amp', static function ($connection, $database, $prefix, $config) {
-            return new CoroutineConnection($connection, $database, $prefix, $config);
-        });
     }
 
     /**
@@ -72,15 +62,5 @@ class Provider extends ServiceProvider
         $this->publishes([
             __DIR__.'/config/ripple.php' => config_path('ripple.php'),
         ], 'ripple-config');
-    }
-
-    /**
-     * @param mixed $value
-     *
-     * @return bool
-     */
-    private function isTrue(mixed $value): bool
-    {
-        return in_array($value, [true, 'true', 1, '1', 'on'], true);
     }
 }

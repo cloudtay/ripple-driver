@@ -46,9 +46,10 @@ use Psc\Drive\Laravel\Events\RequestHandled;
 use Psc\Drive\Laravel\Events\RequestReceived;
 use Psc\Drive\Laravel\Events\RequestTerminated;
 use Psc\Drive\Laravel\Events\WorkerErrorOccurred;
-use Psc\Drive\Laravel\Response\GeneratorResponse;
+use Psc\Drive\Laravel\Response\IteratorResponse;
 use Psc\Drive\Laravel\Traits\DispatchesEvents;
 use Psc\Drive\Utils\Console;
+use Psc\Drive\Utils\Guard;
 use Psc\Utils\Output;
 use Psc\Worker\Command;
 use Psc\Worker\Manager;
@@ -61,8 +62,6 @@ use function Co\cancelAll;
 use function file_exists;
 use function fopen;
 use function fwrite;
-use function in_array;
-use function stream_context_create;
 
 use const STDOUT;
 
@@ -111,24 +110,32 @@ class Worker extends \Psc\Worker\Worker
 
         /*** output env*/
         fwrite(STDOUT, $this->formatRow(["- Conf"]));
-        foreach (Driver::DECLARE_OPTIONS as $key => $value) {
-            fwrite(STDOUT, $this->formatRow(["{$key}", Config::get("ripple.{$key}", $value) ?: 'off']));
+        foreach (Driver::DECLARE_OPTIONS as $key => $type) {
+            fwrite(STDOUT, $this->formatRow([
+                $key,
+                \Psc\Drive\Utils\Config::value2string(Config::get("ripple.{$key}"), $type),
+            ]));
         }
 
         /*** output logs*/
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
-        $context = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
-        $server  = Net::Http()->server($this->address, $context);
-        if (!$server instanceof Server) {
+        $server = Net::Http()->server($this->address, [
+            'socket' => [
+                'so_reuseport' => 1,
+                'so_reuseaddr' => 1
+            ]
+        ]);
+
+        if (!$server) {
             Output::error('Server not supported');
             exit(1);
         }
-        $this->server = $server;
 
+        $this->server      = $server;
         $this->application = Application::getInstance();
 
-        if (in_array(Config::get('ripple.HTTP_RELOAD'), ['true', '1', 'on', true, 1], true)) {
+        if (\Psc\Drive\Utils\Config::value2bool(Config::get('ripple.HTTP_RELOAD'))) {
             $monitor = IO::File()->watch();
             $monitor->add(base_path('app'));
             $monitor->add(base_path('bootstrap'));
@@ -140,22 +147,7 @@ class Worker extends \Psc\Worker\Worker
                 $monitor->add(base_path('.env'));
             }
 
-            $monitor->onTouch = function (string $file) use ($manager) {
-                $manager->reload($this->getName());
-                Output::writeln("File {$file} touched");
-            };
-
-            $monitor->onModify = function (string $file) use ($manager) {
-                $manager->reload($this->getName());
-                Output::writeln("File {$file} modify");
-            };
-
-            $monitor->onRemove = function (string $file) use ($manager) {
-                $manager->reload($this->getName());
-                Output::writeln("File {$file} remove");
-            };
-
-            $monitor->run();
+            Guard::relevance($manager, $this, $monitor);
         }
     }
 
@@ -201,15 +193,15 @@ class Worker extends \Psc\Worker\Worker
 
             try {
                 $laravelResponse = $kernel->handle($laravelRequest);
-                $response = $request->getResponse();
+                $response        = $request->getResponse();
                 $response->setStatusCode($laravelResponse->getStatusCode());
                 foreach ($laravelResponse->headers->all() as $key => $value) {
                     $response->setHeader($key, $value);
                 }
                 if ($laravelResponse instanceof BinaryFileResponse) {
                     $response->setContent(fopen($laravelResponse->getFile()->getPathname(), 'r+'));
-                } elseif ($laravelResponse instanceof GeneratorResponse) {
-                    $response->setContent($laravelResponse->getGenerator());
+                } elseif ($laravelResponse instanceof IteratorResponse) {
+                    $response->setContent($laravelResponse->getIterator());
                 } else {
                     $response->setContent($laravelResponse->getContent());
                 }

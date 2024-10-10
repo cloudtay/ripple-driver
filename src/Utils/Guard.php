@@ -32,16 +32,42 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-/**
- * webman/config/ 配置目录的预申明
- * 20240807补充 config/coroutine.php
- */
+namespace Psc\Drive\Utils;
 
-use Psc\Drive\Workerman\Driver;
+use Psc\Core\File\Monitor;
+use Psc\Utils\Output;
+use Psc\Worker\Manager;
+use Psc\Worker\Worker;
 
-return [
-    // server.php 配置文件
-    'server' => [
-        'event_loop' => Driver::class,
-    ]
-];
+class Guard
+{
+    /**
+     * @param \Psc\Worker\Manager    $manager
+     * @param \Psc\Worker\Worker     $worker
+     * @param \Psc\Core\File\Monitor $monitor
+     *
+     * @return void
+     */
+    public static function relevance(
+        Manager $manager,
+        Worker  $worker,
+        Monitor $monitor
+    ): void {
+        $monitor->onTouch = function (string $file) use ($manager, $worker) {
+            $manager->reload($worker->getName());
+            Output::writeln("File {$file} touched");
+        };
+
+        $monitor->onModify = function (string $file) use ($manager, $worker) {
+            $manager->reload($worker->getName());
+            Output::writeln("File {$file} modify");
+        };
+
+        $monitor->onRemove = function (string $file) use ($manager, $worker) {
+            $manager->reload($worker->getName());
+            Output::writeln("File {$file} remove");
+        };
+
+        $monitor->run();
+    }
+}

@@ -35,19 +35,19 @@
 namespace Psc\Drive\Laravel\Response;
 
 use Closure;
-use Generator;
+use Iterator;
 use Symfony\Component\HttpFoundation\Response;
 
-class GeneratorResponse extends Response
+class IteratorResponse extends Response
 {
-    /*** @var Generator */
-    private Generator $asyncContent;
+    /*** @var \Iterator */
+    private Iterator $asyncContent;
 
     /**
-     * @param Generator|Closure $generator
+     * @param Iterator|Closure $generator
      * @param array             $headers
      */
-    public function __construct(Generator|Closure $generator, array $headers = [])
+    public function __construct(Iterator|Closure $generator, array $headers = [])
     {
         parent::__construct(null, 200, $headers);
         if ($generator instanceof Closure) {
@@ -59,7 +59,7 @@ class GeneratorResponse extends Response
     /**
      * @return mixed
      */
-    public function getGenerator(): Generator
+    public function getIterator(): Iterator
     {
         return $this->asyncContent;
     }

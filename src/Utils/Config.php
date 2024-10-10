@@ -32,31 +32,38 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\ThinkPHP;
+namespace Psc\Drive\Utils;
 
-use Psc\Worker\Manager;
-use think\Service as ThinkPHPService;
+use function in_array;
+use function strtolower;
+use function is_string;
 
-/**
- * @Author cclilshy
- * @Date   2024/8/17 18:20
- */
-class Service extends ThinkPHPService
+class Config
 {
     /**
-     * @Author cclilshy
-     * @Date   2024/8/17 18:20
-     * @return void
+     * @param mixed $value
+     *
+     * @return bool
      */
-    public function register(): void
+    public static function value2bool(mixed $value): bool
     {
-        // 注册服务管理器
-        $this->app->bind(Manager::class, fn () => new Manager());
+        if (is_string($value)) {
+            $value = strtolower($value);
+        }
+        return in_array($value, ['on', 'true', 'yes', '1', 1, true], true);
+    }
 
-        // 注册终端
-        $this->commands([
-            'ripple:server' => Driver::class,
-            'p:server'      => Driver::class
-        ]);
+    /**
+     * @param mixed  $value
+     * @param string $type
+     *
+     * @return string
+     */
+    public static function value2string(mixed $value, string $type): string
+    {
+        return match ($type) {
+            'bool' => Config::value2bool($value) ? 'on' : 'off',
+            default => (string)$value,
+        };
     }
 }

@@ -19,13 +19,13 @@
   ],
   "require": {
     "php": ">=8.1",
-    "cclilshy/p-ripple-core": "^0.6.1"
-  },
-  "require-dev": {
-    "ext-sockets": "*",
-    "ext-pdo": "*",
+    "cclilshy/p-ripple-core": "^0.6.1",
     "ext-pcntl": "*",
     "ext-posix": "*",
+    "ext-sockets": "*",
+    "ext-pdo": "*"
+  },
+  "require-dev": {
     "amphp/mysql": "^3.0",
     "friendsofphp/php-cs-fixer": "*",
     "illuminate/http": "*",
@@ -36,8 +36,8 @@
     "phpunit/phpunit": "*",
     "symfony/console": "*",
     "topthink/framework": "*",
-    "workerman/workerman": "^4.1",
-    "workerman/webman-framework": "*"
+    "workerman/workerman": "dev-master",
+    "workerman/webman-framework": "dev-master"
   },
   "extra": {
     "laravel": {
@@ -55,5 +55,7 @@
     ]
   },
   "config": {
-  }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
 }

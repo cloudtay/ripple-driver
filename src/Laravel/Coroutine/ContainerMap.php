@@ -37,13 +37,13 @@ namespace Psc\Drive\Laravel\Coroutine;
 use Fiber;
 use Illuminate\Container\Container;
 
-use function is_null;
 use function spl_object_hash;
+use function is_null;
 
 class ContainerMap
 {
     /*** @var array */
-    private static array $reference = [];
+    private static array $applications = [];
 
     /**
      * @param \Illuminate\Container\Container $application
@@ -52,8 +52,10 @@ class ContainerMap
      */
     public static function bind(Container $application): void
     {
-        ContainerMap::$reference[spl_object_hash(Fiber::getCurrent())] = $container = \Co\container();
-        $container->set(Container::class, $application);
+        if (!$fiber = Fiber::getCurrent()) {
+            return;
+        }
+        ContainerMap::$applications[spl_object_hash($fiber)] = $application;
     }
 
     /**
@@ -61,7 +63,10 @@ class ContainerMap
      */
     public static function unbind(): void
     {
-        unset(ContainerMap::$reference[spl_object_hash(Fiber::getCurrent())]);
+        if (!$fiber = Fiber::getCurrent()) {
+            return;
+        }
+        unset(ContainerMap::$applications[spl_object_hash($fiber)]);
     }
 
     /**
@@ -69,11 +74,11 @@ class ContainerMap
      */
     public static function current(): Container
     {
-        if (!Fiber::getCurrent()) {
+        if (!$fiber = Fiber::getCurrent()) {
             return Container::getInstance();
         }
 
-        return \Co\container()->get(Container::class) ?? Container::getInstance();
+        return ContainerMap::$applications[spl_object_hash($fiber)] ?? Container::getInstance();
     }
 
     /**
