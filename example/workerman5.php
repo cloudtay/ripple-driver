@@ -32,64 +32,58 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Coroutine;
+include_once __DIR__ . '/../vendor/autoload.php';
 
-use Fiber;
-use Illuminate\Container\Container;
+use Psc\Drive\Workerman\Driver5;
+use Psc\Utils\Output;
+use Workerman\Timer;
+use Workerman\Worker;
 
-use function is_null;
-use function spl_object_hash;
+use function Co\async;
+use function Co\delay;
 
-class ContainerMap
-{
-    /*** @var array */
-    private static array $reference = [];
+$worker                = new Worker('tcp://127.0.0.1:28008');
+$worker->onWorkerStart = function () {
+    $timerId = Timer::add(0.1, function () {
+        Output::info("memory usage: " . \memory_get_usage());
+    });
 
-    /**
-     * @param \Illuminate\Container\Container $application
-     *
-     * @return void
-     */
-    public static function bind(Container $application): void
-    {
-        ContainerMap::$reference[spl_object_hash(Fiber::getCurrent())] = $container = \Co\container();
-        $container->set(Container::class, $application);
+    $timerId2 = Timer::add(1, function () {
+        Output::info("memory usage: " . \memory_get_usage());
+        \gc_collect_cycles();
+    });
+
+    delay(function () use ($timerId) {
+        Timer::del($timerId);
+    }, 3);
+};
+
+$worker->onMessage = function ($connection, $data) {
+    //    //方式1
+    async(function ($r) use ($connection) {
+        \Co\sleep(3);
+
+        $fileContent = \Co\IO::File()->getContents(__FILE__);
+
+        $hash = \hash('sha256', $fileContent);
+        $connection->send("[await] File content hash: {$hash}" . \PHP_EOL);
+
+        $r();
+    });
+
+    //使用原生guzzle实现异步请求
+    try {
+        $response = Co\Plugin::Guzzle()->newClient()->get('https://www.baidu.com/');
+        \var_dump($response->getStatusCode());
+        $connection->send("[async] Response status code: {$response->getStatusCode()}" . \PHP_EOL);
+    } catch (Throwable $exception) {
+        $connection->send("[async] Exception: {$exception->getMessage()}" . \PHP_EOL);
+
     }
 
-    /**
-     * @return void
-     */
-    public static function unbind(): void
-    {
-        unset(ContainerMap::$reference[spl_object_hash(Fiber::getCurrent())]);
-    }
 
-    /**
-     * @return \Illuminate\Container\Container
-     */
-    public static function current(): Container
-    {
-        if (!Fiber::getCurrent()) {
-            return Container::getInstance();
-        }
+    $connection->send("say {$data}");
+};
 
-        return \Co\container()->get(Container::class) ?? Container::getInstance();
-    }
-
-    /**
-     * @param string|null $abstract
-     * @param array       $parameters
-     *
-     * @return mixed
-     * @throws \Illuminate\Contracts\Container\BindingResolutionException
-     */
-    public static function app(string $abstract = null, array $parameters = []): mixed
-    {
-        $container = ContainerMap::current();
-        if (is_null($abstract)) {
-            return $container;
-        }
-
-        return $container->make($abstract, $parameters);
-    }
-}
+Worker::$eventLoopClass = Driver5::class;
+Worker::runAll();

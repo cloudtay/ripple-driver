@@ -32,10 +32,42 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Coroutine\Database\MySQL;
+namespace Psc\Drive\Utils;
 
-use Illuminate\Database\Connectors\MySqlConnector;
+use Psc\Core\File\Monitor;
+use Psc\Utils\Output;
+use Psc\Worker\Manager;
+use Psc\Worker\Worker;
 
-class Connector extends MySqlConnector
+class Guard
 {
+    /**
+     * @param \Psc\Worker\Manager    $manager
+     * @param \Psc\Worker\Worker     $worker
+     * @param \Psc\Core\File\Monitor $monitor
+     *
+     * @return void
+     */
+    public static function relevance(
+        Manager $manager,
+        Worker  $worker,
+        Monitor $monitor
+    ): void {
+        $monitor->onTouch = function (string $file) use ($manager, $worker) {
+            $manager->reload($worker->getName());
+            Output::writeln("File {$file} touched");
+        };
+
+        $monitor->onModify = function (string $file) use ($manager, $worker) {
+            $manager->reload($worker->getName());
+            Output::writeln("File {$file} modify");
+        };
+
+        $monitor->onRemove = function (string $file) use ($manager, $worker) {
+            $manager->reload($worker->getName());
+            Output::writeln("File {$file} remove");
+        };
+
+        $monitor->run();
+    }
 }

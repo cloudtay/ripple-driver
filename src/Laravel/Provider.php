@@ -41,7 +41,6 @@ use Psc\Drive\Laravel\Coroutine\Database\MySQL\Connection as CoroutineConnection
 use Psc\Worker\Manager;
 
 use function config_path;
-use function in_array;
 
 class Provider extends ServiceProvider
 {
@@ -72,15 +71,5 @@ class Provider extends ServiceProvider
         $this->publishes([
             __DIR__.'/config/ripple.php' => config_path('ripple.php'),
         ], 'ripple-config');
-    }
-
-    /**
-     * @param mixed $value
-     *
-     * @return bool
-     */
-    private function isTrue(mixed $value): bool
-    {
-        return in_array($value, [true, 'true', 1, '1', 'on'], true);
     }
 }

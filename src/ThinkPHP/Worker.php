@@ -39,7 +39,9 @@ use Co\Net;
 use JetBrains\PhpStorm\NoReturn;
 use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Server;
+use Psc\Drive\Utils\Config;
 use Psc\Drive\Utils\Console;
+use Psc\Drive\Utils\Guard;
 use Psc\Kernel;
 use Psc\Utils\Output;
 use Psc\Worker\Command;
@@ -58,13 +60,11 @@ use function file_exists;
 use function fwrite;
 use function gc_collect_cycles;
 use function getmypid;
-use function in_array;
 use function posix_getpid;
 use function root_path;
 use function sprintf;
 use function str_replace;
 use function str_starts_with;
-use function stream_context_create;
 use function strtolower;
 use function substr;
 
@@ -108,20 +108,27 @@ class Worker extends \Psc\Worker\Worker
 
         app()->bind(Worker::class, fn () => $this);
 
-        $context = stream_context_create(['socket' => ['so_reuseport' => 1, 'so_reuseaddr' => 1]]);
-        $server  = Net::Http()->server($this->address, $context);
-        if (!$server instanceof Server) {
+        $server = Net::Http()->server($this->address, [
+            'socket' => [
+                'so_reuseport' => 1,
+                'so_reuseaddr' => 1
+            ]
+        ]);
+
+        if (!$server) {
             Output::error('Server not supported');
             exit(1);
         }
+
         $this->server = $server;
+
         fwrite(STDOUT, $this->formatRow(['Worker', $this->getName()]));
         fwrite(STDOUT, $this->formatRow(['Listen', $this->address]));
         fwrite(STDOUT, $this->formatRow(["Workers", $this->count]));
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
         // 热重载监听文件改动
-        if (in_array(Env::get('PHP_HOT_RELOAD'), ['true', '1', 'on', true, 1], true)) {
+        if (Config::value2bool(Env::get('PHP_HOT_RELOAD'))) {
             $monitor = IO::File()->watch();
             $monitor->add(root_path() . '/app');
             $monitor->add(root_path() . '/config');
@@ -132,22 +139,7 @@ class Worker extends \Psc\Worker\Worker
                 $monitor->add(root_path() . '/.env');
             }
 
-            $monitor->onTouch = function (string $file) use ($manager) {
-                $manager->reload($this->getName());
-                Output::writeln("File {$file} touched");
-            };
-
-            $monitor->onModify = function (string $file) use ($manager) {
-                $manager->reload($this->getName());
-                Output::writeln("File {$file} modify");
-            };
-
-            $monitor->onRemove = function (string $file) use ($manager) {
-                $manager->reload($this->getName());
-                Output::writeln("File {$file} remove");
-            };
-
-            $monitor->run();
+            Guard::relevance($manager, $this, $monitor);
         }
     }
 

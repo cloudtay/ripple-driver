@@ -37,8 +37,6 @@ namespace Psc\Drive\ThinkPHP;
 use Psc\Worker\Manager;
 use think\Service as ThinkPHPService;
 
-use function in_array;
-
 /**
  * @Author cclilshy
  * @Date   2024/8/17 18:20
@@ -60,15 +58,5 @@ class Service extends ThinkPHPService
             'ripple:server' => Driver::class,
             'p:server'      => Driver::class
         ]);
-    }
-
-    /**
-     * @param mixed $value
-     *
-     * @return bool
-     */
-    private function isTrue(mixed $value): bool
-    {
-        return in_array($value, [true, 'true', 1, '1', 'on'], true);
     }
 }

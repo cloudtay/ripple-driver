@@ -32,56 +32,38 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-include_once __DIR__ . '/../vendor/autoload.php';
+namespace Psc\Drive\Utils;
 
-use Psc\Drive\Workerman\Driver;
-use Psc\Utils\Output;
-use Workerman\Timer;
-use Workerman\Worker;
+use function in_array;
+use function strtolower;
+use function is_string;
 
-use function Co\async;
-use function Co\delay;
-
-$worker                = new Worker('tcp://127.0.0.1:28008');
-$worker->onWorkerStart = function () {
-    $timerId = Timer::add(0.1, function () {
-        Output::info("memory usage: " . \memory_get_usage());
-    });
-
-    $timerId2 = Timer::add(1, function () {
-        Output::info("memory usage: " . \memory_get_usage());
-        \gc_collect_cycles();
-    });
-
-    delay(fn () => Timer::del($timerId), 3);
-};
-
-$worker->onMessage = function ($connection, $data) {
-    //    //方式1
-    async(function ($r) use ($connection) {
-        \Co\sleep(3);
-
-        $fileContent = \Co\IO::File()->getContents(__FILE__);
-
-        $hash = \hash('sha256', $fileContent);
-        $connection->send("[await] File content hash: {$hash}" . \PHP_EOL);
-
-        $r();
-    });
-
-    //使用原生guzzle实现异步请求
-    try {
-        $response = Co\Plugin::Guzzle()->newClient()->get('https://www.baidu.com/');
-        \var_dump($response->getStatusCode());
-        $connection->send("[async] Response status code: {$response->getStatusCode()}" . \PHP_EOL);
-    } catch (Throwable $exception) {
-        $connection->send("[async] Exception: {$exception->getMessage()}" . \PHP_EOL);
-
+class Config
+{
+    /**
+     * @param mixed $value
+     *
+     * @return bool
+     */
+    public static function value2bool(mixed $value): bool
+    {
+        if (is_string($value)) {
+            $value = strtolower($value);
+        }
+        return in_array($value, ['on', 'true', 'yes', '1', 1, true], true);
     }
 
-
-    $connection->send("say {$data}");
-};
-
-Worker::$eventLoopClass = Driver::class;
-Worker::runAll();
+    /**
+     * @param mixed  $value
+     * @param string $type
+     *
+     * @return string
+     */
+    public static function value2string(mixed $value, string $type): string
+    {
+        return match ($type) {
+            'bool' => Config::value2bool($value) ? 'on' : 'off',
+            default => (string)$value,
+        };
+    }
+}

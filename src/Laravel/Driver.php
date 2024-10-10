@@ -48,7 +48,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 use function app;
 use function base_path;
-use function boolval;
 use function Co\cancelAll;
 use function Co\onSignal;
 use function Co\wait;
@@ -79,11 +78,11 @@ use const SIGTERM;
 class Driver extends Command
 {
     public const DECLARE_OPTIONS = [
-        'HTTP_LISTEN' => 'http://127.0.0.1:8008',
-        'HTTP_WORKERS' => 4,
-        'HTTP_RELOAD' => 0,
-        'HTTP_SANDBOX' => 0,
-        'HTTP_ISOLATION' => 0,
+        'HTTP_LISTEN'    => 'string',
+        'HTTP_WORKERS'   => 'int',
+        'HTTP_RELOAD'    => 'bool',
+        'HTTP_SANDBOX'   => 'bool',
+        'HTTP_ISOLATION' => 'bool',
     ];
 
     /**
@@ -236,7 +235,7 @@ class Driver extends Command
 
         $listen  = Config::get('ripple.HTTP_LISTEN', 'http://127.0.0.1:8008');
         $count   = intval(Config::get('ripple.HTTP_WORKERS', 4));
-        $sandbox = boolval(Config::get('ripple.HTTP_SANDBOX', 1));
+        $sandbox = \Psc\Drive\Utils\Config::value2bool(Config::get('ripple.HTTP_SANDBOX', 1));
 
         $this->manager->addWorker(new Worker($listen, $count, $sandbox));
         $this->manager->run();

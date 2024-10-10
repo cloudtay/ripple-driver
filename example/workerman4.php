@@ -32,58 +32,58 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Coroutine\Database;
+include_once __DIR__ . '/../vendor/autoload.php';
 
-use Closure;
-use Illuminate\Database\Connection;
-use Illuminate\Database\Connectors\ConnectionFactory;
-use Illuminate\Database\Connectors\ConnectorInterface;
-use Illuminate\Database\MariaDbConnection;
-use Illuminate\Database\MySqlConnection;
-use Illuminate\Database\PostgresConnection;
-use Illuminate\Database\SQLiteConnection;
-use Illuminate\Database\SqlServerConnection;
-use PDO;
-use Psc\Drive\Laravel\Coroutine\Database\MySQL\Connector;
+use Psc\Drive\Workerman\Driver4;
+use Psc\Utils\Output;
+use Workerman\Timer;
+use Workerman\Worker;
 
-class Factory extends ConnectionFactory
-{
-    /**
-     * @param array $config
-     *
-     * @return ConnectorInterface
-     */
-    public function createConnector(array $config): ConnectorInterface
-    {
-        return match ($config['driver']) {
-            // Coroutine MySQL connector
-            'mysql-amp' => new Connector(),
+use function Co\async;
+use function Co\delay;
 
-            // Coroutine MySQL connector
-            default     => parent::createConnector($config)
-        };
+$worker                = new Worker('tcp://127.0.0.1:28008');
+$worker->onWorkerStart = function () {
+    $timerId = Timer::add(0.1, function () {
+        Output::info("memory usage: " . \memory_get_usage());
+    });
+
+    $timerId2 = Timer::add(1, function () {
+        Output::info("memory usage: " . \memory_get_usage());
+        \gc_collect_cycles();
+    });
+
+    delay(function () use ($timerId) {
+        Timer::del($timerId);
+    }, 3);
+};
+
+$worker->onMessage = function ($connection, $data) {
+    //    //方式1
+    async(function ($r) use ($connection) {
+        \Co\sleep(3);
+
+        $fileContent = \Co\IO::File()->getContents(__FILE__);
+
+        $hash = \hash('sha256', $fileContent);
+        $connection->send("[await] File content hash: {$hash}" . \PHP_EOL);
+
+        $r();
+    });
+
+    //使用原生guzzle实现异步请求
+    try {
+        $response = Co\Plugin::Guzzle()->newClient()->get('https://www.baidu.com/');
+        \var_dump($response->getStatusCode());
+        $connection->send("[async] Response status code: {$response->getStatusCode()}" . \PHP_EOL);
+    } catch (Throwable $exception) {
+        $connection->send("[async] Exception: {$exception->getMessage()}" . \PHP_EOL);
+
     }
 
-    /**
-     * Create a new connection instance.
-     *
-     * @param string      $driver
-     * @param PDO|Closure $connection
-     * @param string      $database
-     * @param string      $prefix
-     * @param array       $config
-     *
-     * @return SQLiteConnection|MariaDbConnection|MySqlConnection|PostgresConnection|SqlServerConnection|Connection
-     *
-     */
-    protected function createConnection($driver, $connection, $database, $prefix = '', array $config = []): SQLiteConnection|MariaDbConnection|MySqlConnection|PostgresConnection|SqlServerConnection|Connection
-    {
-        return match ($driver) {
-            // Coroutine MySQL connection
-            'mysql-amp' => new MySQL\Connection($connection, $database, $prefix, $config),
 
-            // Native database connection
-            default     => parent::createConnection($driver, $connection, $database, $prefix, $config)
-        };
-    }
-}
+    $connection->send("say {$data}");
+};
+
+Worker::$eventLoopClass = Driver4::class;
+Worker::runAll();
