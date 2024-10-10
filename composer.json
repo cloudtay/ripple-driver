@@ -1,6 +1,6 @@
 {
   "name": "cloudtay/p-ripple-drive",
-  "version": "v1.2.7",
+  "version": "v1.2.9",
   "license": "MIT",
   "autoload": {
     "psr-4": {
@@ -19,11 +19,11 @@
   ],
   "require": {
     "php": ">=8.1",
-    "cclilshy/p-ripple-core": "^0.6.1",
     "ext-pcntl": "*",
     "ext-posix": "*",
     "ext-sockets": "*",
-    "ext-pdo": "*"
+    "ext-pdo": "*",
+    "cclilshy/p-ripple-core": "^0.6.5"
   },
   "require-dev": {
     "amphp/mysql": "^3.0",
