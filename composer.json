@@ -1,6 +1,6 @@
 {
   "name": "cloudtay/p-ripple-drive",
-  "version": "v1.2.9",
+  "version": "v1.2.11",
   "license": "MIT",
   "autoload": {
     "psr-4": {

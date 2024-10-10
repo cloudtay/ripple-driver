@@ -44,13 +44,17 @@ class RPL
     /**
      * @param Iterator|Closure $iterator
      * @param TcpConnection    $tcpConnection
+     * @param bool             $closeWhenFinish
+     * @param bool             $autopilot
      *
      * @return IteratorResponse
      */
     public static function iteratorResponse(
         Iterator|Closure $iterator,
         TcpConnection    $tcpConnection,
+        bool             $closeWhenFinish = false,
+        bool             $autopilot = true,
     ): IteratorResponse {
-        return IteratorResponse::create($iterator, $tcpConnection);
+        return IteratorResponse::create($iterator, $tcpConnection, $closeWhenFinish, $autopilot);
     }
 }

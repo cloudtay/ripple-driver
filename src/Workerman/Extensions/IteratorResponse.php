@@ -54,17 +54,18 @@ use function version_compare;
 class IteratorResponse extends Response
 {
     /*** @var \Iterator|mixed */
-    private Iterator $iterator;
+    protected Iterator $iterator;
 
     /**
      * @param Iterator|Closure $iterator      迭代器
      * @param TcpConnection    $tcpConnection TCP连接
      * @param bool             $autopilot     自动驾驶
      */
-    protected function __construct(
+    public function __construct(
         Iterator|Closure                 $iterator,
         protected readonly TcpConnection $tcpConnection,
-        bool                             $autopilot = true,
+        protected readonly bool          $autopilot = true,
+        protected readonly bool          $closeWhenFinish = false,
     ) {
         if ($iterator instanceof Closure) {
             $iterator = $iterator();
@@ -107,19 +108,35 @@ class IteratorResponse extends Response
             $this->tcpConnection->send($frame, true);
         }
 
+        if ($this->closeWhenFinish) {
+            $this->close();
+        }
+
         return $this;
+    }
+
+    /**
+     * @return void
+     */
+    public function close(): void
+    {
+        $this->tcpConnection->close();
     }
 
     /**
      * @param Iterator|Closure $iterator
      * @param TcpConnection    $tcpConnection
+     * @param bool             $closeWhenFinish
+     * @param bool             $autopilot
      *
      * @return IteratorResponse
      */
     public static function create(
         Iterator|Closure $iterator,
         TcpConnection    $tcpConnection,
+        bool             $closeWhenFinish = false,
+        bool             $autopilot = true,
     ): IteratorResponse {
-        return new self($iterator, $tcpConnection);
+        return new static($iterator, $tcpConnection, $closeWhenFinish, $autopilot);
     }
 }
