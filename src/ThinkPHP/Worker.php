@@ -36,7 +36,6 @@ namespace Psc\Drive\ThinkPHP;
 
 use Co\IO;
 use Co\Net;
-use JetBrains\PhpStorm\NoReturn;
 use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Server;
 use Psc\Drive\Utils\Config;
@@ -44,7 +43,6 @@ use Psc\Drive\Utils\Console;
 use Psc\Drive\Utils\Guard;
 use Psc\Kernel;
 use Psc\Utils\Output;
-use Psc\Worker\Command;
 use Psc\Worker\Manager;
 use think\App;
 use think\facade\Env;
@@ -54,7 +52,6 @@ use Throwable;
 
 use function app;
 use function cli_set_process_title;
-use function Co\cancelAll;
 use function Co\repeat;
 use function file_exists;
 use function fwrite;
@@ -87,8 +84,12 @@ class Worker extends \Psc\Worker\Worker
      * @param string $address
      * @param int    $count
      */
-    public function __construct(private readonly string $address = 'http://127.0.0.1:8008', private readonly int $count = 4)
-    {
+    public function __construct(
+        private readonly string $address = 'http://127.0.0.1:8008',
+        int $count = 4
+    ) {
+        $this->count = $count;
+        $this->name  = 'http-server';
     }
 
     /**
@@ -141,16 +142,6 @@ class Worker extends \Psc\Worker\Worker
 
             Guard::relevance($manager, $this, $monitor);
         }
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/17 11:06
-     * @return string
-     */
-    public function getName(): string
-    {
-        return 'http-server';
     }
 
     /**
@@ -208,7 +199,7 @@ class Worker extends \Psc\Worker\Worker
 
             $response->setStatusCode($thinkResponse->getCode());
             foreach ($thinkResponse->getHeader() as $key => $value) {
-                $response->setHeader($key, $value);
+                $response->withHeader($key, $value);
             }
 
             # 根据响应类型处理响应内容
@@ -221,38 +212,5 @@ class Worker extends \Psc\Worker\Worker
             $app->delete(Route::class);
         });
         $this->server->listen();
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/17 11:06
-     * @return int
-     */
-    public function getCount(): int
-    {
-        return $this->count;
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/16 23:39
-     *
-     * @param Command $workerCommand
-     *
-     * @return void
-     */
-    public function onCommand(Command $workerCommand): void
-    {
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/17 11:35
-     * @return void
-     */
-    #[NoReturn] public function onReload(): void
-    {
-        cancelAll();
-        exit(0);
     }
 }

@@ -39,7 +39,6 @@ use Co\Net;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Config;
-use JetBrains\PhpStorm\NoReturn;
 use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Server;
 use Psc\Drive\Laravel\Events\RequestHandled;
@@ -51,14 +50,12 @@ use Psc\Drive\Laravel\Traits\DispatchesEvents;
 use Psc\Drive\Utils\Console;
 use Psc\Drive\Utils\Guard;
 use Psc\Utils\Output;
-use Psc\Worker\Command;
 use Psc\Worker\Manager;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
 
 use function base_path;
 use function cli_set_process_title;
-use function Co\cancelAll;
 use function file_exists;
 use function fopen;
 use function fwrite;
@@ -87,9 +84,11 @@ class Worker extends \Psc\Worker\Worker
      */
     public function __construct(
         private readonly string $address = 'http://127.0.0.1:8008',
-        private readonly int    $count = 4,
+        int $count = 4,
         private readonly bool   $sandbox = true,
     ) {
+        $this->name  = 'http-server';
+        $this->count = $count;
     }
 
     /**
@@ -153,16 +152,6 @@ class Worker extends \Psc\Worker\Worker
 
     /**
      * @Author cclilshy
-     * @Date   2024/8/17 11:06
-     * @return string
-     */
-    public function getName(): string
-    {
-        return 'http-server';
-    }
-
-    /**
-     * @Author cclilshy
      * @Date   2024/8/17 11:08
      * @return void
      */
@@ -196,7 +185,7 @@ class Worker extends \Psc\Worker\Worker
                 $response        = $request->getResponse();
                 $response->setStatusCode($laravelResponse->getStatusCode());
                 foreach ($laravelResponse->headers->all() as $key => $value) {
-                    $response->setHeader($key, $value);
+                    $response->withHeader($key, $value);
                 }
                 if ($laravelResponse instanceof BinaryFileResponse) {
                     $response->setContent(fopen($laravelResponse->getFile()->getPathname(), 'r+'));
@@ -221,38 +210,5 @@ class Worker extends \Psc\Worker\Worker
             }
         });
         $this->server->listen();
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/17 11:06
-     * @return int
-     */
-    public function getCount(): int
-    {
-        return $this->count;
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/16 23:39
-     *
-     * @param Command $workerCommand
-     *
-     * @return void
-     */
-    public function onCommand(Command $workerCommand): void
-    {
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/17 11:35
-     * @return void
-     */
-    #[NoReturn] public function onReload(): void
-    {
-        cancelAll();
-        exit(0);
     }
 }
