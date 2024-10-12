@@ -1,6 +1,6 @@
 {
   "name": "cloudtay/ripple-driver",
-  "version": "v1.2.11",
+  "version": "v1.3",
   "license": "MIT",
   "autoload": {
     "psr-4": {
@@ -23,7 +23,7 @@
     "ext-posix": "*",
     "ext-sockets": "*",
     "ext-pdo": "*",
-    "cloudtay/ripple": "dev-main"
+    "cloudtay/ripple": "^0.7"
   },
   "require-dev": {
     "amphp/mysql": "^3.0",
