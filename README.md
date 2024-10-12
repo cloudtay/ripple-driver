@@ -3,9 +3,9 @@
 </p>
 <p align="center">
 <a href="#"><img src="https://img.shields.io/badge/PHP-%3E%3D%208.3-blue" alt="Build Status"></a>
-<a href="https://packagist.org/packages/cclilshy/p-ripple-core"><img src="https://img.shields.io/packagist/dt/cclilshy/p-ripple-core" alt="Download statistics"></a>
-<a href="https://packagist.org/packages/cclilshy/p-ripple-core"><img src="https://img.shields.io/packagist/v/cclilshy/p-ripple-core" alt="Stable version"></a>
-<a href="https://packagist.org/packages/cclilshy/p-ripple-core"><img src="https://img.shields.io/packagist/l/cclilshy/p-ripple-core" alt="License"></a>
+<a href="https://packagist.org/packages/cloudtay/ripple"><img src="https://img.shields.io/packagist/dt/cloudtay/ripple" alt="Download statistics"></a>
+<a href="https://packagist.org/packages/cloudtay/ripple"><img src="https://img.shields.io/packagist/v/cloudtay/ripple" alt="Stable version"></a>
+<a href="https://packagist.org/packages/cloudtay/ripple"><img src="https://img.shields.io/packagist/l/cloudtay/ripple" alt="License"></a>
 </p>
 <p>
 ripple是一个现代化的、高性能的原生PHP协程框架，旨在解决PHP在高并发、复杂网络通信和数据操作方面的挑战。
@@ -22,16 +22,16 @@ ripple是一个现代化的、高性能的原生PHP协程框架，旨在解决PH
 ### 安装
 
 ````bash
-composer require cclilshy/p-ripple-drive
+composer require cloudtay/ripple-driver
 ````
 
 ### 开始学习
 
-你可以访问ripple的[文档](https://p-ripple.cloudtay.com/)开始阅读
+你可以访问ripple的[文档](https://ripple.cloudtay.com/)开始阅读
 
-我们建议你从[手动安装](https://p-ripple.cloudtay.com/docs/install/professional)开始, 便于更好地理解ripple的工作流程
+我们建议你从[手动安装](https://ripple.cloudtay.com/docs/install/professional)开始, 便于更好地理解ripple的工作流程
 
-如果你想快速部署并使用ripple的服务，你可以直接访问[快速部署](https://p-ripple.cloudtay.com/docs/install/server)
+如果你想快速部署并使用ripple的服务，你可以直接访问[快速部署](https://ripple.cloudtay.com/docs/install/server)
 
 ### 相关项目
 

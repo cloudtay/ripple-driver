@@ -37,14 +37,14 @@ jobs:
         working-directory: laravel-app
         run: |
           composer config repositories.local '{"type": "path", "url": "../"}'
-          composer require cclilshy/p-ripple-drive
-          cp -r ../src vendor/cclilshy/p-ripple-drive/
+          composer require cloudtay/ripple-driver
+          cp -r ../src vendor/cloudtay/ripple-driver/
 
       - name: 初始化测试路由 (Initialize Test Route)
         working-directory: laravel-app
         run: |
           echo "PRP_HTTP_WORKERS=1" >> .env
-          cp ./vendor/cclilshy/p-ripple-drive/src/Laravel/Tests/routes-test.php routes/test.php
+          cp ./vendor/cloudtay/ripple-driver/src/Laravel/Tests/routes-test.php routes/test.php
           php artisan vendor:publish --tag=ripple-config
           php artisan optimize
 
