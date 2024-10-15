@@ -36,7 +36,6 @@ jobs:
       - name: 安装引擎 (Initialize ripple)
         working-directory: laravel-app
         run: |
-          composer config repositories.local '{"type": "path", "url": "../"}'
           composer require cloudtay/ripple-driver
           cp -r ../src vendor/cloudtay/ripple-driver/
 
