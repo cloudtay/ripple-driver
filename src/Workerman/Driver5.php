@@ -39,18 +39,18 @@ use Psc\Kernel;
 use Psc\Utils\Output;
 use Revolt\EventLoop;
 use Revolt\EventLoop\UnsupportedFeatureException;
-use Workerman\Events\EventInterface;
 use Throwable;
+use Workerman\Events\EventInterface;
 
+use function array_shift;
 use function Co\cancelAll;
 use function count;
+use function getmypid;
 use function pcntl_signal;
 use function sleep;
-use function array_shift;
-use function getmypid;
 
-use const SIGINT;
 use const SIG_IGN;
+use const SIGINT;
 
 final class Driver5 implements EventInterface
 {
@@ -268,6 +268,16 @@ final class Driver5 implements EventInterface
      *
      * @return bool
      */
+    public function offRepeat(int $timerId): bool
+    {
+        return $this->offDelay($timerId);
+    }
+
+    /**
+     * @param int $timerId
+     *
+     * @return bool
+     */
     public function offDelay(int $timerId): bool
     {
         if (isset($this->eventTimer[$timerId])) {
@@ -276,16 +286,6 @@ final class Driver5 implements EventInterface
             return true;
         }
         return false;
-    }
-
-    /**
-     * @param int $timerId
-     *
-     * @return bool
-     */
-    public function offRepeat(int $timerId): bool
-    {
-        return $this->offDelay($timerId);
     }
 
     /**

@@ -32,19 +32,69 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Events;
+namespace Psc\Drive\Yii2;
 
-use Illuminate\Foundation\Application;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use yii\web\CookieCollection;
+use yii\web\HeaderCollection;
 
-class RequestHandled
+class Request extends \yii\web\Request
 {
-    public function __construct(
-        public Application $app,
-        public Application $sandbox,
-        public Request     $request,
-        public Response    $response
-    ) {
+    /*** @var \yii\web\HeaderCollection */
+    protected HeaderCollection $headers;
+
+    /*** @var \yii\web\CookieCollection */
+    protected CookieCollection $cookies;
+
+    /*** @var string|null */
+    protected string|null $csrfToken = null;
+
+    /*** @var string */
+    protected string $method = 'GET';
+
+    public function getMethod(): string
+    {
+        return $this->method;
+    }
+
+    /**
+     * @param string $value
+     *
+     * @return void
+     */
+    public function setMethod(string $value): void
+    {
+        $this->method = $value;
+    }
+
+    /**
+     * @param \yii\web\HeaderCollection $headerCollection
+     *
+     * @return void
+     */
+    public function setHeaders(HeaderCollection $headerCollection): void
+    {
+        $this->headers = $headerCollection;
+    }
+
+    /**
+     * @param \yii\web\CookieCollection $cookieCollection
+     *
+     * @return void
+     */
+    public function setCookies(CookieCollection $cookieCollection): void
+    {
+        $this->cookies = $cookieCollection;
+    }
+
+    /**
+     * @param string|null $csrfToken
+     *
+     * @return void
+     */
+    public function setCsrfToken(string|null $csrfToken): void
+    {
+        if ($csrfToken !== null) {
+            $this->csrfToken = $csrfToken;
+        }
     }
 }

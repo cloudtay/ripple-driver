@@ -32,58 +32,15 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Coroutine\Database;
+namespace Psc\Drive\Yii2;
 
-use Closure;
-use Illuminate\Database\Connection;
-use Illuminate\Database\Connectors\ConnectionFactory;
-use Illuminate\Database\Connectors\ConnectorInterface;
-use Illuminate\Database\MariaDbConnection;
-use Illuminate\Database\MySqlConnection;
-use Illuminate\Database\PostgresConnection;
-use Illuminate\Database\SQLiteConnection;
-use Illuminate\Database\SqlServerConnection;
-use PDO;
-use Psc\Drive\Laravel\Coroutine\Database\MySQL\Connector;
-
-class Factory extends ConnectionFactory
+class Driver
 {
-    /**
-     * @param array $config
-     *
-     * @return ConnectorInterface
-     */
-    public function createConnector(array $config): ConnectorInterface
-    {
-        return match ($config['driver']) {
-            // Coroutine MySQL connector
-            'mysql-amp' => new Connector(),
-
-            // Coroutine MySQL connector
-            default     => parent::createConnector($config)
-        };
-    }
-
-    /**
-     * Create a new connection instance.
-     *
-     * @param string      $driver
-     * @param PDO|Closure $connection
-     * @param string      $database
-     * @param string      $prefix
-     * @param array       $config
-     *
-     * @return SQLiteConnection|MariaDbConnection|MySqlConnection|PostgresConnection|SqlServerConnection|Connection
-     *
-     */
-    protected function createConnection($driver, $connection, $database, $prefix = '', array $config = []): SQLiteConnection|MariaDbConnection|MySqlConnection|PostgresConnection|SqlServerConnection|Connection
-    {
-        return match ($driver) {
-            // Coroutine MySQL connection
-            'mysql-amp' => new MySQL\Connection($connection, $database, $prefix, $config),
-
-            // Native database connection
-            default     => parent::createConnection($driver, $connection, $database, $prefix, $config)
-        };
-    }
+    public const DECLARE_OPTIONS = [
+        'HTTP_LISTEN'    => 'string',
+        'HTTP_WORKERS'   => 'int',
+        'HTTP_RELOAD'    => 'bool',
+        'HTTP_SANDBOX'   => 'bool',
+        'HTTP_ISOLATION' => 'bool',
+    ];
 }

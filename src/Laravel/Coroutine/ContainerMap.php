@@ -37,8 +37,8 @@ namespace Psc\Drive\Laravel\Coroutine;
 use Fiber;
 use Illuminate\Container\Container;
 
-use function spl_object_hash;
 use function is_null;
+use function spl_object_hash;
 
 class ContainerMap
 {
@@ -70,18 +70,6 @@ class ContainerMap
     }
 
     /**
-     * @return \Illuminate\Container\Container
-     */
-    public static function current(): Container
-    {
-        if (!$fiber = Fiber::getCurrent()) {
-            return Container::getInstance();
-        }
-
-        return ContainerMap::$applications[spl_object_hash($fiber)] ?? Container::getInstance();
-    }
-
-    /**
      * @param string|null $abstract
      * @param array       $parameters
      *
@@ -96,5 +84,17 @@ class ContainerMap
         }
 
         return $container->make($abstract, $parameters);
+    }
+
+    /**
+     * @return \Illuminate\Container\Container
+     */
+    public static function current(): Container
+    {
+        if (!$fiber = Fiber::getCurrent()) {
+            return Container::getInstance();
+        }
+
+        return ContainerMap::$applications[spl_object_hash($fiber)] ?? Container::getInstance();
     }
 }

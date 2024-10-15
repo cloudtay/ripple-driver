@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 /*
  * Copyright (c) 2023-2024.
  *
@@ -36,7 +37,7 @@ use Composer\Autoload\ClassLoader;
 use Psc\Drive\Laravel\Coroutine\ContainerMap;
 use Psc\Drive\ThinkPHP\Coroutine\AppMap;
 
-if (! \function_exists('app')) {
+if (!\function_exists('app')) {
     $composer = new \ReflectionClass(ClassLoader::class);
     $rootPath = \dirname($composer->getFileName(), 3);
     if (false) {
@@ -57,12 +58,14 @@ if (! \function_exists('app')) {
             /**
              * 快速获取容器中的实例 支持依赖注入
              * @template T
+             *
              * @param string|class-string<T> $name        类名或标识 默认获取当前应用实例
              * @param array                  $args        参数
              * @param bool                   $newInstance 是否每次创建新的实例
+             *
              * @return T|object|\think\App
              */
-            function app(string $name = '', array $args = [], bool $newInstance = false)
+            function app(string $name = '', array $args = [], bool $newInstance = false): mixed
             {
                 return AppMap::app($name, $args, $newInstance);
             }

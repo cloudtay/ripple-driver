@@ -35,11 +35,25 @@
 namespace Psc\Drive\Utils;
 
 use function in_array;
-use function strtolower;
 use function is_string;
+use function strtolower;
 
 class Config
 {
+    /**
+     * @param mixed  $value
+     * @param string $type
+     *
+     * @return string
+     */
+    public static function value2string(mixed $value, string $type): string
+    {
+        return match ($type) {
+            'bool'  => Config::value2bool($value) ? 'on' : 'off',
+            default => (string)$value,
+        };
+    }
+
     /**
      * @param mixed $value
      *
@@ -51,19 +65,5 @@ class Config
             $value = strtolower($value);
         }
         return in_array($value, ['on', 'true', 'yes', '1', 1, true], true);
-    }
-
-    /**
-     * @param mixed  $value
-     * @param string $type
-     *
-     * @return string
-     */
-    public static function value2string(mixed $value, string $type): string
-    {
-        return match ($type) {
-            'bool' => Config::value2bool($value) ? 'on' : 'off',
-            default => (string)$value,
-        };
     }
 }

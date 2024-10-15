@@ -86,7 +86,7 @@ class Worker extends \Psc\Worker\Worker
      */
     public function __construct(
         private readonly string $address = 'http://127.0.0.1:8008',
-        int $count = 4
+        int                     $count = 4
     ) {
         $this->count = $count;
         $this->name  = 'http-server';

@@ -45,7 +45,7 @@ class IteratorResponse extends Response
 
     /**
      * @param Iterator|Closure $generator
-     * @param array             $headers
+     * @param array            $headers
      */
     public function __construct(Iterator|Closure $generator, array $headers = [])
     {

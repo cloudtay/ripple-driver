@@ -45,8 +45,8 @@ class RequestTerminated
     public function __construct(
         public Application $app,
         public Application $sandbox,
-        public Request $request,
-        public Response $response
+        public Request     $request,
+        public Response    $response
     ) {
         ContainerMap::unbind();
 

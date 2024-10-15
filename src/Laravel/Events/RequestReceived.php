@@ -43,7 +43,7 @@ class RequestReceived
     public function __construct(
         public Application $app,
         public Application $sandbox,
-        public Request $request
+        public Request     $request
     ) {
         ContainerMap::bind($sandbox);
     }

@@ -32,19 +32,19 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Events;
+namespace Psc\Drive\Yii2;
 
-use Illuminate\Foundation\Application;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use yii\base\BootstrapInterface;
 
-class RequestHandled
+class Bootstrap implements BootstrapInterface
 {
-    public function __construct(
-        public Application $app,
-        public Application $sandbox,
-        public Request     $request,
-        public Response    $response
-    ) {
+    /**
+     * @param $app
+     *
+     * @return void
+     */
+    public function bootstrap($app): void
+    {
+        $app->controllerMap['ripple:server'] = RippleController::class;
     }
 }

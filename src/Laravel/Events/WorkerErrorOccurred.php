@@ -43,7 +43,7 @@ class WorkerErrorOccurred
     public function __construct(
         public Application $app,
         public Application $sandbox,
-        public Throwable $exception
+        public Throwable   $exception
     ) {
         ContainerMap::unbind();
     }

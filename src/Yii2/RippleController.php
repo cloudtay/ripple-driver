@@ -32,19 +32,23 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Events;
+namespace Psc\Drive\Yii2;
 
-use Illuminate\Foundation\Application;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use Psc\Worker\Manager;
+use Throwable;
+use yii\console\Controller;
 
-class RequestHandled
+class RippleController extends Controller
 {
-    public function __construct(
-        public Application $app,
-        public Application $sandbox,
-        public Request     $request,
-        public Response    $response
-    ) {
+    /**
+     * @return void
+     * @throws Throwable
+     */
+    public function actionIndex(): void
+    {
+        $manager = new Manager();
+        $worker  = new Worker();
+        $manager->addWorker($worker);
+        $manager->run();
     }
 }

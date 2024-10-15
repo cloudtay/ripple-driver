@@ -64,8 +64,8 @@ class IteratorResponse extends Response
     public function __construct(
         Iterator|Closure                 $iterator,
         protected readonly TcpConnection $tcpConnection,
-        protected readonly bool          $autopilot = true,
         protected readonly bool          $closeWhenFinish = false,
+        protected readonly bool          $autopilot = true,
     ) {
         if ($iterator instanceof Closure) {
             $iterator = $iterator();

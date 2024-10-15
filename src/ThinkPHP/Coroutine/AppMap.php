@@ -66,18 +66,6 @@ class AppMap
     }
 
     /**
-     * @return \think\App|\think\Container
-     */
-    public static function current(): App|Container
-    {
-        if (!Fiber::getCurrent()) {
-            return App::getInstance();
-        }
-
-        return \Co\container()->get(App::class) ?? App::getInstance();
-    }
-
-    /**
      * @param string $name
      * @param array  $args
      * @param bool   $newInstance
@@ -92,5 +80,17 @@ class AppMap
         }
 
         return $container->make($name ?: App::class, $args, $newInstance);
+    }
+
+    /**
+     * @return \think\App|\think\Container
+     */
+    public static function current(): App|Container
+    {
+        if (!Fiber::getCurrent()) {
+            return App::getInstance();
+        }
+
+        return \Co\container()->get(App::class) ?? App::getInstance();
     }
 }

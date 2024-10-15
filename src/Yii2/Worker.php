@@ -32,32 +32,25 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+namespace Psc\Drive\Yii2;
 
 use Co\IO;
 use Co\Net;
-use Illuminate\Contracts\Http\Kernel;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Config;
 use Psc\Core\Http\Server\Request;
 use Psc\Core\Http\Server\Server;
-use Psc\Drive\Laravel\Events\RequestHandled;
-use Psc\Drive\Laravel\Events\RequestReceived;
-use Psc\Drive\Laravel\Events\RequestTerminated;
-use Psc\Drive\Laravel\Events\WorkerErrorOccurred;
-use Psc\Drive\Laravel\Response\IteratorResponse;
-use Psc\Drive\Laravel\Traits\DispatchesEvents;
+use Psc\Drive\Utils\Config;
 use Psc\Drive\Utils\Console;
 use Psc\Drive\Utils\Guard;
 use Psc\Utils\Output;
 use Psc\Worker\Manager;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
+use Yii;
+use yii\base\InvalidParamException;
 
-use function base_path;
 use function cli_set_process_title;
+use function define;
+use function defined;
 use function file_exists;
-use function fopen;
 use function fwrite;
 
 use const STDOUT;
@@ -69,7 +62,6 @@ use const STDOUT;
 class Worker extends \Psc\Worker\Worker
 {
     use Console;
-    use DispatchesEvents;
 
     /*** @var Server */
     private Server $server;
@@ -77,18 +69,31 @@ class Worker extends \Psc\Worker\Worker
     /*** @var Application */
     private Application $application;
 
+    /*** @var string */
+    private string $rootPath;
+
     /**
      * @param string $address
      * @param int    $count
      * @param bool   $sandbox
+     *
      */
     public function __construct(
         private readonly string $address = 'http://127.0.0.1:8008',
-        int                     $count = 4,
+        int                     $count = 1,
         private readonly bool   $sandbox = true,
     ) {
         $this->name  = 'http-server';
         $this->count = $count;
+        try {
+            $this->rootPath = Yii::getAlias('@app');
+        } catch (InvalidParamException) {
+            Output::error('Yii2 root path not found');
+            exit(1);
+        }
+
+        defined('YII_DEBUG') or define('YII_DEBUG', true);
+        defined('YII_ENV') or define('YII_ENV', 'dev');
     }
 
     /**
@@ -102,7 +107,7 @@ class Worker extends \Psc\Worker\Worker
      */
     public function register(Manager $manager): void
     {
-        cli_set_process_title('laravel-guard');
+        cli_set_process_title('yii2-guard');
 
         /*** output worker*/
         fwrite(STDOUT, $this->formatRow(['Worker', $this->getName()]));
@@ -112,7 +117,7 @@ class Worker extends \Psc\Worker\Worker
         foreach (Driver::DECLARE_OPTIONS as $key => $type) {
             fwrite(STDOUT, $this->formatRow([
                 $key,
-                \Psc\Drive\Utils\Config::value2string(Config::get("ripple.{$key}"), $type),
+                '',
             ]));
         }
 
@@ -132,18 +137,23 @@ class Worker extends \Psc\Worker\Worker
         }
 
         $this->server      = $server;
-        $this->application = Application::getInstance();
+        $config            = require $this->rootPath . '/config/web.php';
+        $this->application = new Application($config);
 
-        if (\Psc\Drive\Utils\Config::value2bool(Config::get('ripple.HTTP_RELOAD'))) {
+        if (Config::value2bool(1)) {
             $monitor = IO::File()->watch();
-            $monitor->add(base_path('app'));
-            $monitor->add(base_path('bootstrap'));
-            $monitor->add(base_path('config'));
-            $monitor->add(base_path('database'));
-            $monitor->add(base_path('routes'));
-            $monitor->add(base_path('resources'));
-            if (file_exists(base_path('.env'))) {
-                $monitor->add(base_path('.env'));
+            $monitor->add($this->rootPath . ('/commands'));
+            $monitor->add($this->rootPath . ('/controllers'));
+            $monitor->add($this->rootPath . ('/mail'));
+            $monitor->add($this->rootPath . ('/models'));
+            $monitor->add($this->rootPath . ('/views'));
+            $monitor->add($this->rootPath . ('/web'));
+            $monitor->add($this->rootPath . ('/widgets'));
+            $monitor->add($this->rootPath . ('/vagrant'));
+            $monitor->add($this->rootPath . ('/mail'));
+            $monitor->add($this->rootPath . ('/config'));
+            if (file_exists($this->rootPath . ('/.env'))) {
+                $monitor->add($this->rootPath . ('/.env'));
             }
 
             Guard::relevance($manager, $this, $monitor);
@@ -157,57 +167,9 @@ class Worker extends \Psc\Worker\Worker
      */
     public function boot(): void
     {
-        cli_set_process_title('laravel-worker');
-
-        $this->application->bind(Worker::class, fn () => $this);
-
-        $this->server->onRequest(function (
-            Request $request
-        ) {
-            $application = $this->sandbox ? clone $this->application : $this->application;
-            /*** @var Kernel $kernel */
-            $kernel = $application->make(Kernel::class);
-
-            $laravelRequest = new \Illuminate\Http\Request(
-                $request->GET,
-                $request->POST,
-                [],
-                $request->COOKIE,
-                $request->FILES,
-                $request->SERVER,
-                $request->CONTENT,
-            );
-            $laravelRequest->attributes->set('ripple.request', $request);
-            $this->dispatchEvent($application, new RequestReceived($this->application, $application, $laravelRequest));
-
-            try {
-                $laravelResponse = $kernel->handle($laravelRequest);
-                $response        = $request->getResponse();
-                $response->setStatusCode($laravelResponse->getStatusCode());
-                foreach ($laravelResponse->headers->all() as $key => $value) {
-                    $response->withHeader($key, $value);
-                }
-                if ($laravelResponse instanceof BinaryFileResponse) {
-                    $response->setContent(fopen($laravelResponse->getFile()->getPathname(), 'r+'));
-                } elseif ($laravelResponse instanceof IteratorResponse) {
-                    $response->setContent($laravelResponse->getIterator());
-                } else {
-                    $response->setContent($laravelResponse->getContent());
-                }
-
-                $response->respond();
-                $this->dispatchEvent($application, new RequestHandled($this->application, $application, $laravelRequest, $laravelResponse));
-
-                $kernel->terminate($laravelRequest, $laravelResponse);
-                $this->dispatchEvent($application, new RequestTerminated($this->application, $application, $laravelRequest, $laravelResponse));
-            } catch (Throwable $e) {
-                $this->dispatchEvent($application, new WorkerErrorOccurred($this->application, $application, $e));
-            } finally {
-                if ($this->sandbox) {
-                    unset($application);
-                }
-                unset($laravelRequest, $response, $laravelResponse, $kernel);
-            }
+        $this->server->onRequest(function (Request $request) {
+            $application = clone $this->application;
+            $application->rippleDispatch($request);
         });
         $this->server->listen();
     }

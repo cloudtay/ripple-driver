@@ -1,6 +1,6 @@
 {
   "name": "cloudtay/ripple-driver",
-  "version": "v1.2.11",
+  "version": "dev-main",
   "license": "MIT",
   "autoload": {
     "psr-4": {
@@ -23,7 +23,7 @@
     "ext-posix": "*",
     "ext-sockets": "*",
     "ext-pdo": "*",
-    "cloudtay/ripple": "dev-main"
+    "cloudtay/ripple": "*"
   },
   "require-dev": {
     "amphp/mysql": "^3.0",
@@ -37,7 +37,9 @@
     "symfony/console": "*",
     "topthink/framework": "*",
     "workerman/workerman": "dev-master",
-    "workerman/webman-framework": "dev-master"
+    "workerman/webman-framework": "dev-master",
+    "yiisoft/yii2": "^2.0@beta",
+    "cloudtay/ripple": "dev-main"
   },
   "extra": {
     "laravel": {
@@ -50,11 +52,12 @@
         "Psc\\Drive\\ThinkPHP\\Service"
       ]
     },
-    "include_files": [
-      "src/helpers.php"
-    ]
+    "yii\\bootstrap": "Psc\\Drive\\Yii2\\Bootstrap"
   },
   "config": {
+    "allow-plugins": {
+      "yiisoft/yii2-composer": true
+    }
   },
   "minimum-stability": "dev",
   "prefer-stable": true

@@ -44,6 +44,7 @@ use Throwable;
 use Workerman\Events\EventInterface;
 use Workerman\Worker;
 
+use function array_search;
 use function call_user_func;
 use function call_user_func_array;
 use function Co\cancel;
@@ -64,7 +65,6 @@ use function posix_getpid;
 use function sleep;
 use function str_contains;
 use function string2int;
-use function array_search;
 
 class Driver4 implements EventInterface
 {

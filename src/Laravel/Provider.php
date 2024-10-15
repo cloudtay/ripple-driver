@@ -60,7 +60,7 @@ class Provider extends ServiceProvider
     public function boot(): void
     {
         $this->publishes([
-            __DIR__.'/config/ripple.php' => config_path('ripple.php'),
+            __DIR__ . '/config/ripple.php' => config_path('ripple.php'),
         ], 'ripple-config');
     }
 }
