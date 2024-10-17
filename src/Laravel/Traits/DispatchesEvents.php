@@ -32,7 +32,7 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Traits;
+namespace Ripple\Driver\Laravel\Traits;
 
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Foundation\Application;

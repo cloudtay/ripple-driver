@@ -32,9 +32,9 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\ThinkPHP;
+namespace Ripple\Driver\ThinkPHP;
 
-use Psc\Worker\Manager;
+use Ripple\Worker\Manager;
 use think\Service as ThinkPHPService;
 
 /**

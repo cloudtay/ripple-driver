@@ -32,13 +32,13 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\ThinkPHP;
+namespace Ripple\Driver\ThinkPHP;
 
-use Psc\Core\Stream\Exception\ConnectionException;
-use Psc\Core\Stream\Stream;
-use Psc\Kernel;
-use Psc\Utils\Serialization\Zx7e;
-use Psc\Worker\Manager;
+use Ripple\Stream\Exception\ConnectionException;
+use Ripple\Stream\Stream;
+use Ripple\Kernel;
+use Ripple\Utils\Serialization\Zx7e;
+use Ripple\Worker\Manager;
 use Revolt\EventLoop\UnsupportedFeatureException;
 use think\console\Command;
 use think\console\Input;
@@ -123,36 +123,36 @@ class Driver extends Command
                         runtime_path('log') . 'ripple.log'
                     );
                     shell_exec($command);
-                    \Psc\Utils\Output::writeln('server started');
+                    \Ripple\Utils\Output::writeln('server started');
                 }
                 exit(0);
             case 'stop':
                 if (!file_exists($this->controlPipePath)) {
-                    \Psc\Utils\Output::warning('The server is not running');
+                    \Ripple\Utils\Output::warning('The server is not running');
                     return;
                 }
                 $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
                 $controlStream->write($zx7e->encodeFrame('{"action":"stop"}'));
-                \Psc\Utils\Output::writeln('The server is stopping');
+                \Ripple\Utils\Output::writeln('The server is stopping');
                 break;
             case 'reload':
                 if (!file_exists($this->controlPipePath)) {
-                    \Psc\Utils\Output::warning('The server is not running');
+                    \Ripple\Utils\Output::warning('The server is not running');
                     return;
                 }
                 $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
                 $controlStream->write($zx7e->encodeFrame('{"action":"reload"}'));
-                \Psc\Utils\Output::writeln('The server is reloading');
+                \Ripple\Utils\Output::writeln('The server is reloading');
                 break;
             case 'status':
                 if (!file_exists($this->controlPipePath)) {
-                    \Psc\Utils\Output::writeln('The server is not running');
+                    \Ripple\Utils\Output::writeln('The server is not running');
                 } else {
-                    \Psc\Utils\Output::writeln('The server is running');
+                    \Ripple\Utils\Output::writeln('The server is running');
                 }
                 break;
             default:
-                \Psc\Utils\Output::warning('Unsupported operation');
+                \Ripple\Utils\Output::warning('Unsupported operation');
         }
     }
 
@@ -184,7 +184,7 @@ class Driver extends Command
 
         $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
         if (!flock(fopen($this->controlLockPath, 'r'), LOCK_EX | LOCK_NB)) {
-            \Psc\Utils\Output::warning('The server is already running');
+            \Ripple\Utils\Output::warning('The server is already running');
             exit(0);
         }
         $controlStream->setBlocking(false);

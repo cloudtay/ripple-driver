@@ -32,17 +32,17 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Yii2;
+namespace Ripple\Driver\Yii2;
 
 use Co\IO;
 use Co\Net;
-use Psc\Core\Http\Server\Request;
-use Psc\Core\Http\Server\Server;
-use Psc\Drive\Utils\Config;
-use Psc\Drive\Utils\Console;
-use Psc\Drive\Utils\Guard;
-use Psc\Utils\Output;
-use Psc\Worker\Manager;
+use Ripple\App\Http\Server\Request;
+use Ripple\App\Http\Server\Server;
+use Ripple\Driver\Utils\Config;
+use Ripple\Driver\Utils\Console;
+use Ripple\Driver\Utils\Guard;
+use Ripple\Utils\Output;
+use Ripple\Worker\Manager;
 use Throwable;
 use Yii;
 use yii\base\InvalidParamException;
@@ -59,7 +59,7 @@ use const STDOUT;
  * @Author cclilshy
  * @Date   2024/8/16 23:38
  */
-class Worker extends \Psc\Worker\Worker
+class Worker extends \Ripple\Worker\Worker
 {
     use Console;
 

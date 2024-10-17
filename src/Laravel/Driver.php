@@ -32,16 +32,16 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+namespace Ripple\Driver\Laravel;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
-use Psc\Core\Stream\Exception\ConnectionException;
-use Psc\Core\Stream\Stream;
-use Psc\Kernel;
-use Psc\Utils\Output;
-use Psc\Utils\Serialization\Zx7e;
-use Psc\Worker\Manager;
+use Ripple\Stream\Exception\ConnectionException;
+use Ripple\Stream\Stream;
+use Ripple\Kernel;
+use Ripple\Utils\Output;
+use Ripple\Utils\Serialization\Zx7e;
+use Ripple\Worker\Manager;
 use Revolt\EventLoop\UnsupportedFeatureException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -235,7 +235,7 @@ class Driver extends Command
 
         $listen  = Config::get('ripple.HTTP_LISTEN', 'http://127.0.0.1:8008');
         $count   = intval(Config::get('ripple.HTTP_WORKERS', 4));
-        $sandbox = \Psc\Drive\Utils\Config::value2bool(Config::get('ripple.HTTP_SANDBOX', 1));
+        $sandbox = \Ripple\Driver\Utils\Config::value2bool(Config::get('ripple.HTTP_SANDBOX', 1));
 
         $this->manager->addWorker(new Worker($listen, $count, $sandbox));
         $this->manager->run();

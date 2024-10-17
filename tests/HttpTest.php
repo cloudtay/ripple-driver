@@ -34,7 +34,7 @@
 
 namespace Tests;
 
-use Co\Plugin;
+use Co\App;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
@@ -52,7 +52,7 @@ class HttpTest extends TestCase
     #[Test]
     public function test_http(): void
     {
-        $client = Plugin::Guzzle()->newClient();
+        $client = App::Guzzle()->newClient();
 
         for ($i = 0; $i < 100; $i++) {
             $client->get('http://127.0.0.1:8008/memory');

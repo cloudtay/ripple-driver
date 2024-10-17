@@ -34,15 +34,15 @@
  */
 
 use Co\Net;
-use Psc\Core\WebSocket\Server\Connection;
-use Psc\Core\WebSocket\Server\Server;
-use Psc\Worker\Command;
-use Psc\Worker\Manager;
+use Ripple\App\WebSocket\Server\Connection;
+use Ripple\App\WebSocket\Server\Server;
+use Ripple\Worker\Command;
+use Ripple\Worker\Manager;
 
 include __DIR__ . '/../vendor/autoload.php';
 
 
-class WsServer extends \Psc\Worker\Worker
+class WsServer extends \Ripple\Worker\Worker
 {
     /**
      * @var Server

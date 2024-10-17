@@ -32,7 +32,7 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Yii2;
+namespace Ripple\Driver\Yii2;
 
 use Throwable;
 use yii\base\ExitException;
@@ -50,15 +50,15 @@ use function ucwords;
 
 class Application extends \yii\web\Application
 {
-    /*** @var \Psc\Drive\Yii2\Request */
+    /*** @var \Ripple\Driver\Yii2\Request */
     private Request $injectRequest;
 
     /**
-     * @param \Psc\Core\Http\Server\Request $originalRequest
+     * @param \Ripple\App\Http\Server\Request $originalRequest
      *
      * @return void
      */
-    public function rippleDispatch(\Psc\Core\Http\Server\Request $originalRequest): void
+    public function rippleDispatch(\Ripple\App\Http\Server\Request $originalRequest): void
     {
         $this->injectRequest = $this->rippleYii2RequestBuild($originalRequest);
         $originalResponse    = $originalRequest->getResponse();
@@ -99,11 +99,11 @@ class Application extends \yii\web\Application
     }
 
     /**
-     * @param \Psc\Core\Http\Server\Request $request
+     * @param \Ripple\App\Http\Server\Request $request
      *
-     * @return \Psc\Drive\Yii2\Request
+     * @return \Ripple\Driver\Yii2\Request
      */
-    public function rippleYii2RequestBuild(\Psc\Core\Http\Server\Request $request): Request
+    public function rippleYii2RequestBuild(\Ripple\App\Http\Server\Request $request): Request
     {
         $headers = new HeaderCollection();
         $cookies = new CookieCollection();

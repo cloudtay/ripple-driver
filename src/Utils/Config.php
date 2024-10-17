@@ -32,7 +32,7 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Utils;
+namespace Ripple\Driver\Utils;
 
 use function in_array;
 use function is_string;

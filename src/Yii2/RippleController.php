@@ -32,9 +32,9 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Yii2;
+namespace Ripple\Driver\Yii2;
 
-use Psc\Worker\Manager;
+use Ripple\Worker\Manager;
 use Throwable;
 use yii\console\Controller;
 

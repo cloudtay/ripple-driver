@@ -34,8 +34,8 @@
  */
 
 use Composer\Autoload\ClassLoader;
-use Psc\Drive\Laravel\Coroutine\ContainerMap;
-use Psc\Drive\ThinkPHP\Coroutine\AppMap;
+use Ripple\Driver\Laravel\Coroutine\ContainerMap;
+use Ripple\Driver\ThinkPHP\Coroutine\AppMap;
 
 if (!\function_exists('app')) {
     $composer = new \ReflectionClass(ClassLoader::class);

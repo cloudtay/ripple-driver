@@ -32,11 +32,11 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel\Events;
+namespace Ripple\Driver\Laravel\Events;
 
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
-use Psc\Drive\Laravel\Coroutine\ContainerMap;
+use Ripple\Driver\Laravel\Coroutine\ContainerMap;
 
 class RequestReceived
 {

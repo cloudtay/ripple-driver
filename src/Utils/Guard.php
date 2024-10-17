@@ -32,19 +32,19 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Utils;
+namespace Ripple\Driver\Utils;
 
-use Psc\Core\File\Monitor;
-use Psc\Utils\Output;
-use Psc\Worker\Manager;
-use Psc\Worker\Worker;
+use Ripple\File\Monitor;
+use Ripple\Utils\Output;
+use Ripple\Worker\Manager;
+use Ripple\Worker\Worker;
 
 class Guard
 {
     /**
-     * @param \Psc\Worker\Manager    $manager
-     * @param \Psc\Worker\Worker     $worker
-     * @param \Psc\Core\File\Monitor $monitor
+     * @param \Ripple\Worker\Manager    $manager
+     * @param \Ripple\Worker\Worker     $worker
+     * @param \Ripple\File\Monitor $monitor
      *
      * @return void
      */

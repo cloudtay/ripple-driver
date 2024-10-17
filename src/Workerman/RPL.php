@@ -32,11 +32,11 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Workerman;
+namespace Ripple\Driver\Workerman;
 
 use Closure;
 use Iterator;
-use Psc\Drive\Workerman\Extensions\IteratorResponse;
+use Ripple\Driver\Workerman\Extensions\IteratorResponse;
 use Workerman\Connection\TcpConnection;
 
 class RPL

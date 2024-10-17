@@ -32,13 +32,13 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Workerman;
+namespace Ripple\Driver\Workerman;
 
 use Closure;
 use Co\System;
-use Psc\Core\Stream\Stream;
-use Psc\Kernel;
-use Psc\Utils\Output;
+use Ripple\Stream\Stream;
+use Ripple\Kernel;
+use Ripple\Utils\Output;
 use Revolt\EventLoop\UnsupportedFeatureException;
 use Throwable;
 use Workerman\Events\EventInterface;

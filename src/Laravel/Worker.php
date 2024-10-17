@@ -32,25 +32,25 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Laravel;
+namespace Ripple\Driver\Laravel;
 
 use Co\IO;
 use Co\Net;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Config;
-use Psc\Core\Http\Server\Request;
-use Psc\Core\Http\Server\Server;
-use Psc\Drive\Laravel\Events\RequestHandled;
-use Psc\Drive\Laravel\Events\RequestReceived;
-use Psc\Drive\Laravel\Events\RequestTerminated;
-use Psc\Drive\Laravel\Events\WorkerErrorOccurred;
-use Psc\Drive\Laravel\Response\IteratorResponse;
-use Psc\Drive\Laravel\Traits\DispatchesEvents;
-use Psc\Drive\Utils\Console;
-use Psc\Drive\Utils\Guard;
-use Psc\Utils\Output;
-use Psc\Worker\Manager;
+use Ripple\App\Http\Server\Request;
+use Ripple\App\Http\Server\Server;
+use Ripple\Driver\Laravel\Events\RequestHandled;
+use Ripple\Driver\Laravel\Events\RequestReceived;
+use Ripple\Driver\Laravel\Events\RequestTerminated;
+use Ripple\Driver\Laravel\Events\WorkerErrorOccurred;
+use Ripple\Driver\Laravel\Response\IteratorResponse;
+use Ripple\Driver\Laravel\Traits\DispatchesEvents;
+use Ripple\Driver\Utils\Console;
+use Ripple\Driver\Utils\Guard;
+use Ripple\Utils\Output;
+use Ripple\Worker\Manager;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
 
@@ -66,7 +66,7 @@ use const STDOUT;
  * @Author cclilshy
  * @Date   2024/8/16 23:38
  */
-class Worker extends \Psc\Worker\Worker
+class Worker extends \Ripple\Worker\Worker
 {
     use Console;
     use DispatchesEvents;
@@ -112,7 +112,7 @@ class Worker extends \Psc\Worker\Worker
         foreach (Driver::DECLARE_OPTIONS as $key => $type) {
             fwrite(STDOUT, $this->formatRow([
                 $key,
-                \Psc\Drive\Utils\Config::value2string(Config::get("ripple.{$key}"), $type),
+                \Ripple\Driver\Utils\Config::value2string(Config::get("ripple.{$key}"), $type),
             ]));
         }
 
@@ -134,7 +134,7 @@ class Worker extends \Psc\Worker\Worker
         $this->server      = $server;
         $this->application = Application::getInstance();
 
-        if (\Psc\Drive\Utils\Config::value2bool(Config::get('ripple.HTTP_RELOAD'))) {
+        if (\Ripple\Driver\Utils\Config::value2bool(Config::get('ripple.HTTP_RELOAD'))) {
             $monitor = IO::File()->watch();
             $monitor->add(base_path('app'));
             $monitor->add(base_path('bootstrap'));

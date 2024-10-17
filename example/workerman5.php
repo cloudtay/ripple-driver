@@ -34,8 +34,8 @@
 
 include_once __DIR__ . '/../vendor/autoload.php';
 
-use Psc\Drive\Workerman\Driver5;
-use Psc\Utils\Output;
+use Ripple\Drive\Workerman\Driver5;
+use Ripple\Utils\Output;
 use Workerman\Timer;
 use Workerman\Worker;
 

@@ -4,7 +4,7 @@
   "license": "MIT",
   "autoload": {
     "psr-4": {
-      "Psc\\Drive\\": "src/",
+      "Ripple\\Driver\\": "src/",
       "Tests\\": "tests/"
     },
     "files": [
@@ -39,20 +39,22 @@
     "workerman/workerman": "dev-master",
     "workerman/webman-framework": "dev-master",
     "yiisoft/yii2": "^2.0@beta",
-    "cloudtay/ripple": "dev-main"
+    "cloudtay/ripple": "0.8.x-dev",
+    "cloudtay/ripple-http": "dev-main",
+    "cloudtay/ripple-websocket": "dev-main"
   },
   "extra": {
     "laravel": {
       "providers": [
-        "Psc\\Drive\\Laravel\\Provider"
+        "Ripple\\Driver\\Laravel\\Provider"
       ]
     },
     "think": {
       "services": [
-        "Psc\\Drive\\ThinkPHP\\Service"
+        "Ripple\\Driver\\ThinkPHP\\Service"
       ]
     },
-    "yii\\bootstrap": "Psc\\Drive\\Yii2\\Bootstrap"
+    "yii\\bootstrap": "Ripple\\Driver\\Yii2\\Bootstrap"
   },
   "config": {
     "allow-plugins": {

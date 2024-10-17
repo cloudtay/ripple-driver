@@ -32,14 +32,14 @@
  * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
  */
 
-namespace Psc\Drive\Workerman\Extensions;
+namespace Ripple\Driver\Workerman\Extensions;
 
 use Closure;
 use Iterator;
-use Psc\Drive\Workerman\Driver;
-use Psc\Drive\Workerman\Driver4;
-use Psc\Drive\Workerman\Driver5;
-use Psc\Drive\Workerman\PDrive;
+use Ripple\Driver\Workerman\Driver;
+use Ripple\Driver\Workerman\Driver4;
+use Ripple\Driver\Workerman\Driver5;
+use Ripple\Driver\Workerman\PDrive;
 use Workerman\Connection\TcpConnection;
 use Workerman\Protocols\Http\Response;
 use Workerman\Timer;
