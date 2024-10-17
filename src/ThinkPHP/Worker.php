@@ -158,7 +158,7 @@ class Worker extends \Ripple\Worker\Worker
         fwrite(STDOUT, sprintf(
             "Worker %s@%d started.\n",
             $this->getName(),
-            Kernel::getInstance()->supportProcessControl() ? getmypid() : posix_getpid()
+            Kernel::getInstance()->supportProcessControl() ? posix_getpid() : getmypid()
         ));
 
         /*** register loop timer*/
