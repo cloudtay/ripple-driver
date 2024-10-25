@@ -36,10 +36,10 @@
     "phpunit/phpunit": "*",
     "symfony/console": "*",
     "topthink/framework": "*",
-    "workerman/workerman": "dev-master",
+    "workerman/workerman": "*",
     "workerman/webman-framework": "dev-master",
     "yiisoft/yii2": "^2.0@beta",
-    "cloudtay/ripple": "0.8.x-dev",
+    "cloudtay/ripple": "dev-main",
     "cloudtay/ripple-http": "dev-main",
     "cloudtay/ripple-websocket": "dev-main"
   },

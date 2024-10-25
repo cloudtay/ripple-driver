@@ -35,15 +35,19 @@
 namespace Ripple\Driver\Workerman;
 
 use Co\System;
-use Ripple\Kernel;
-use Ripple\Utils\Output;
 use Revolt\EventLoop;
 use Revolt\EventLoop\UnsupportedFeatureException;
-use Throwable;
+use Ripple\Kernel;
+use Ripple\Utils\Output;
 use Workerman\Events\EventInterface;
 
 use function array_shift;
+use function Co\cancel;
 use function Co\cancelAll;
+use function Co\delay;
+use function Co\repeat;
+use function Co\stop;
+use function Co\wait;
 use function count;
 use function getmypid;
 use function pcntl_signal;
@@ -60,43 +64,32 @@ final class Driver5 implements EventInterface
     private static int|float $baseProcessId;
 
     /**
-     * All listeners for read event.
-     *
-     * @var array<int, string>
+     * @var array
      */
     private array $readEvents = [];
 
     /**
-     * All listeners for write event.
-     *
-     * @var array<int, string>
+     * @var array
      */
     private array $writeEvents = [];
 
     /**
-     * Event listeners of signal.
-     *
-     * @var array<int, string>
+     * @var array
      */
     private array $eventSignal = [];
 
     /**
-     * Event listeners of timer.
-     *
-     * @var array<int, string>
+     * @var array
      */
     private array $eventTimer = [];
 
     /**
-     * Timer id.
-     *
      * @var int
      */
     private int $timerId = 1;
 
     /**
      * @return void
-     * @throws Throwable
      */
     public function run(): void
     {
@@ -113,7 +106,7 @@ final class Driver5 implements EventInterface
             }
         }
 
-        \Co\wait();
+        wait();
 
         while (1) {
             sleep(1);
@@ -125,7 +118,7 @@ final class Driver5 implements EventInterface
      */
     public function stop(): void
     {
-        \Co\stop();
+        stop();
         if (Kernel::getInstance()->supportProcessControl()) {
             pcntl_signal(SIGINT, SIG_IGN);
         }
@@ -145,7 +138,7 @@ final class Driver5 implements EventInterface
             unset($this->eventTimer[$timerId]);
             $func(...$args);
         };
-        $cbId                       = \Co\delay($closure, $delay);
+        $cbId = delay($closure, $delay);
         $this->eventTimer[$timerId] = $cbId;
         return $timerId;
     }
@@ -160,7 +153,7 @@ final class Driver5 implements EventInterface
     public function repeat(float $interval, callable $func, array $args = []): int
     {
         $timerId                    = $this->timerId++;
-        $cbId                       = \Co\repeat(static fn () => $func(...$args), $interval);
+        $cbId = repeat(static fn () => $func(...$args), $interval);
         $this->eventTimer[$timerId] = $cbId;
         return $timerId;
     }
@@ -175,7 +168,7 @@ final class Driver5 implements EventInterface
     {
         $fdKey = (int)$stream;
         if (isset($this->readEvents[$fdKey])) {
-            \Co\cancel($this->readEvents[$fdKey]);
+            cancel($this->readEvents[$fdKey]);
             unset($this->readEvents[$fdKey]);
         }
 
@@ -191,7 +184,7 @@ final class Driver5 implements EventInterface
     {
         $fdKey = (int)$stream;
         if (isset($this->readEvents[$fdKey])) {
-            \Co\cancel($this->readEvents[$fdKey]);
+            cancel($this->readEvents[$fdKey]);
             unset($this->readEvents[$fdKey]);
             return true;
         }
@@ -208,7 +201,7 @@ final class Driver5 implements EventInterface
     {
         $fdKey = (int)$stream;
         if (isset($this->writeEvents[$fdKey])) {
-            \Co\cancel($this->writeEvents[$fdKey]);
+            cancel($this->writeEvents[$fdKey]);
             unset($this->writeEvents[$fdKey]);
         }
         $this->writeEvents[$fdKey] = EventLoop::onWritable($stream, static fn () => $func($stream));
@@ -223,7 +216,7 @@ final class Driver5 implements EventInterface
     {
         $fdKey = (int)$stream;
         if (isset($this->writeEvents[$fdKey])) {
-            \Co\cancel($this->writeEvents[$fdKey]);
+            cancel($this->writeEvents[$fdKey]);
             unset($this->writeEvents[$fdKey]);
             return true;
         }
@@ -241,7 +234,7 @@ final class Driver5 implements EventInterface
     {
         $fdKey = $signal;
         if (isset($this->eventSignal[$fdKey])) {
-            \Co\cancel($this->eventSignal[$fdKey]);
+            cancel($this->eventSignal[$fdKey]);
             unset($this->eventSignal[$fdKey]);
         }
         $this->eventSignal[$fdKey] = EventLoop::onSignal($signal, static fn () => $func($signal));
@@ -256,7 +249,7 @@ final class Driver5 implements EventInterface
     {
         $fdKey = $signal;
         if (isset($this->eventSignal[$fdKey])) {
-            \Co\cancel($this->eventSignal[$fdKey]);
+            cancel($this->eventSignal[$fdKey]);
             unset($this->eventSignal[$fdKey]);
             return true;
         }
@@ -281,7 +274,7 @@ final class Driver5 implements EventInterface
     public function offDelay(int $timerId): bool
     {
         if (isset($this->eventTimer[$timerId])) {
-            \Co\cancel($this->eventTimer[$timerId]);
+            cancel($this->eventTimer[$timerId]);
             unset($this->eventTimer[$timerId]);
             return true;
         }
@@ -294,7 +287,7 @@ final class Driver5 implements EventInterface
     public function deleteAllTimer(): void
     {
         while ($cbId = array_shift($this->eventTimer)) {
-            \Co\cancel($cbId);
+            cancel($cbId);
         }
     }
 

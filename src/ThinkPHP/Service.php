@@ -55,8 +55,7 @@ class Service extends ThinkPHPService
 
         // 注册终端
         $this->commands([
-            'ripple:server' => Driver::class,
-            'p:server'      => Driver::class
+            'ripple:server' => Driver::class
         ]);
     }
 }

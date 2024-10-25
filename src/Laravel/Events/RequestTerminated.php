@@ -34,7 +34,6 @@
 
 namespace Ripple\Driver\Laravel\Events;
 
-use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Ripple\Driver\Laravel\Coroutine\ContainerMap;
@@ -49,16 +48,5 @@ class RequestTerminated
         public Response    $response
     ) {
         ContainerMap::unbind();
-
-        if ($app->bound('session')) {
-            try {
-                $app->make('session')->forgetDrivers();
-            } catch (BindingResolutionException) {
-            }
-        }
-
-        if ($sandbox->bound('session.store')) {
-            $app->forgetInstance('session.store');
-        }
     }
 }

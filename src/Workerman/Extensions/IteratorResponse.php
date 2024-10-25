@@ -36,10 +36,8 @@ namespace Ripple\Driver\Workerman\Extensions;
 
 use Closure;
 use Iterator;
-use Ripple\Driver\Workerman\Driver;
 use Ripple\Driver\Workerman\Driver4;
 use Ripple\Driver\Workerman\Driver5;
-use Ripple\Driver\Workerman\PDrive;
 use Workerman\Connection\TcpConnection;
 use Workerman\Protocols\Http\Response;
 use Workerman\Timer;
@@ -77,8 +75,6 @@ class IteratorResponse extends Response
             switch (Worker::$eventLoopClass) {
                 case Driver5::class:
                 case Driver4::class:
-                case Driver::class:
-                case PDrive::class:
                     \Co\defer(fn () => $this->processIterator());
                     break;
                 default:

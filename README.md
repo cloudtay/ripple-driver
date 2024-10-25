@@ -46,7 +46,7 @@ composer require cloudtay/ripple-driver
 ### 特别致谢
 
 <a href="https://www.jetbrains.com/?from=ripple" target="__blank">
-    <img src="https://www.jetbrains.com/company/brand/img/jetbrains_logo.png" width="200">
+    <img src="https://www.jetbrains.com/company/brand/img/jetbrains_logo.png" width="200" alt="">
 </a>
 
 [Jetbrains](https://www.jetbrains.com/?from=ripple) 为本项目提供了免费的开发工具

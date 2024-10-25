@@ -48,7 +48,7 @@ visit [Quick Deployment](https://ripple.cloudtay.com/docs/install/server)
 ### Thanks
 
 <a href="https://www.jetbrains.com/?from=ripple" target="__blank">
-    <img src="https://www.jetbrains.com/company/brand/img/jetbrains_logo.png" width="200">
+    <img src="https://www.jetbrains.com/company/brand/img/jetbrains_logo.png" width="200" alt="">
 </a>
 
 [Jetbrains](https://www.jetbrains.com/?from=ripple) Free development tools are provided for this project

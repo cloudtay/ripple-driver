@@ -184,9 +184,15 @@ class Worker extends \Ripple\Worker\Worker
                 $laravelResponse = $kernel->handle($laravelRequest);
                 $response        = $request->getResponse();
                 $response->setStatusCode($laravelResponse->getStatusCode());
-                foreach ($laravelResponse->headers->all() as $key => $value) {
+
+                foreach ($laravelResponse->headers->allPreserveCaseWithoutCookies() as $key => $value) {
                     $response->withHeader($key, $value);
                 }
+
+                foreach ($laravelResponse->headers->getCookies() as $cookie) {
+                    $response->withCookie($cookie->getName(), $cookie->__toString());
+                }
+
                 if ($laravelResponse instanceof BinaryFileResponse) {
                     $response->setContent(fopen($laravelResponse->getFile()->getPathname(), 'r+'));
                 } elseif ($laravelResponse instanceof IteratorResponse) {

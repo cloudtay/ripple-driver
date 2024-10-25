@@ -48,7 +48,7 @@ class Provider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->commands([Driver::class, DriverOld::class]);
+        $this->commands([Driver::class]);
         $this->app->singleton(Manager::class, static function () {
             return new Manager();
         });
