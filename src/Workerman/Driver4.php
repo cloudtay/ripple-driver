@@ -36,10 +36,8 @@ namespace Ripple\Driver\Workerman;
 
 use Closure;
 use Co\System;
-use Ripple\Stream\Stream;
+use Ripple\Stream;
 use Ripple\Kernel;
-use Ripple\Utils\Output;
-use Revolt\EventLoop\UnsupportedFeatureException;
 use Throwable;
 use Workerman\Events\EventInterface;
 use Workerman\Worker;
@@ -249,12 +247,8 @@ class Driver4 implements EventInterface
             Driver4::$baseProcessId = (Kernel::getInstance()->supportProcessControl() ? getmypid() : posix_getpid());
         } elseif (Driver4::$baseProcessId !== (Kernel::getInstance()->supportProcessControl() ? getmypid() : posix_getpid())) {
             Driver4::$baseProcessId = (Kernel::getInstance()->supportProcessControl() ? getmypid() : posix_getpid());
-            try {
-                cancelAll();
-                System::Process()->forkedTick();
-            } catch (UnsupportedFeatureException $e) {
-                Output::error($e->getMessage());
-            }
+            cancelAll();
+            System::Process()->forkedTick();
         }
         wait();
 

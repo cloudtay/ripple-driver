@@ -54,11 +54,11 @@ class Application extends \yii\web\Application
     private Request $injectRequest;
 
     /**
-     * @param \Ripple\App\Http\Server\Request $originalRequest
+     * @param \Ripple\Http\Server\Request $originalRequest
      *
      * @return void
      */
-    public function rippleDispatch(\Ripple\App\Http\Server\Request $originalRequest): void
+    public function rippleDispatch(\Ripple\Http\Server\Request $originalRequest): void
     {
         $this->injectRequest = $this->rippleYii2RequestBuild($originalRequest);
         $originalResponse    = $originalRequest->getResponse();
@@ -99,11 +99,11 @@ class Application extends \yii\web\Application
     }
 
     /**
-     * @param \Ripple\App\Http\Server\Request $request
+     * @param \Ripple\Http\Server\Request $request
      *
      * @return \Ripple\Driver\Yii2\Request
      */
-    public function rippleYii2RequestBuild(\Ripple\App\Http\Server\Request $request): Request
+    public function rippleYii2RequestBuild(\Ripple\Http\Server\Request $request): Request
     {
         $headers = new HeaderCollection();
         $cookies = new CookieCollection();

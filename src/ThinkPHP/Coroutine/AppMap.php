@@ -34,63 +34,6 @@
 
 namespace Ripple\Driver\ThinkPHP\Coroutine;
 
-use Fiber;
-use think\App;
-use think\Container;
-
-use function is_null;
-use function spl_object_hash;
-
 class AppMap
 {
-    /*** @var array */
-    private static array $reference = [];
-
-    /**
-     * @param App $application
-     *
-     * @return void
-     */
-    public static function bind(App $application): void
-    {
-        AppMap::$reference[spl_object_hash(Fiber::getCurrent())] = $container = \Co\container();
-        $container->set(App::class, $application);
-    }
-
-    /**
-     * @return void
-     */
-    public static function unbind(): void
-    {
-        unset(AppMap::$reference[spl_object_hash(Fiber::getCurrent())]);
-    }
-
-    /**
-     * @param string $name
-     * @param array  $args
-     * @param bool   $newInstance
-     *
-     * @return mixed
-     */
-    public static function app(string $name = '', array $args = [], bool $newInstance = false): mixed
-    {
-        $container = AppMap::current();
-        if (is_null($name)) {
-            return $container;
-        }
-
-        return $container->make($name ?: App::class, $args, $newInstance);
-    }
-
-    /**
-     * @return \think\App|\think\Container
-     */
-    public static function current(): App|Container
-    {
-        if (!Fiber::getCurrent()) {
-            return App::getInstance();
-        }
-
-        return \Co\container()->get(App::class) ?? App::getInstance();
-    }
 }

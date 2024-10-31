@@ -36,13 +36,13 @@ namespace Ripple\Driver\Laravel;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
-use Ripple\Stream\Exception\ConnectionException;
-use Ripple\Stream\Stream;
+use Revolt\EventLoop\UnsupportedFeatureException;
 use Ripple\Kernel;
+use Ripple\Stream;
+use Ripple\Stream\Exception\ConnectionException;
 use Ripple\Utils\Output;
 use Ripple\Utils\Serialization\Zx7e;
 use Ripple\Worker\Manager;
-use Revolt\EventLoop\UnsupportedFeatureException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -115,6 +115,7 @@ class Driver extends Command
      * @param OutputInterface $output
      *
      * @return void
+     * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
     public function initialize(InputInterface $input, OutputInterface $output): void
     {

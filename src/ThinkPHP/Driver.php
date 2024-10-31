@@ -35,7 +35,7 @@
 namespace Ripple\Driver\ThinkPHP;
 
 use Ripple\Stream\Exception\ConnectionException;
-use Ripple\Stream\Stream;
+use Ripple\Stream;
 use Ripple\Kernel;
 use Ripple\Utils\Serialization\Zx7e;
 use Ripple\Worker\Manager;
@@ -85,6 +85,7 @@ class Driver extends Command
 
     /**
      * @return void
+     * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
     protected function configure(): void
     {
@@ -158,7 +159,7 @@ class Driver extends Command
 
     /**
      * @return void
-     * @throws UnsupportedFeatureException
+     * @throws \Revolt\EventLoop\UnsupportedFeatureException
      */
     private function start(): void
     {

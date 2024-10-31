@@ -35,12 +35,9 @@
 namespace Ripple\Driver\Laravel;
 
 use Co\IO;
-use Co\Net;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Config;
-use Ripple\App\Http\Server\Request;
-use Ripple\App\Http\Server\Server;
 use Ripple\Driver\Laravel\Events\RequestHandled;
 use Ripple\Driver\Laravel\Events\RequestReceived;
 use Ripple\Driver\Laravel\Events\RequestTerminated;
@@ -49,7 +46,8 @@ use Ripple\Driver\Laravel\Response\IteratorResponse;
 use Ripple\Driver\Laravel\Traits\DispatchesEvents;
 use Ripple\Driver\Utils\Console;
 use Ripple\Driver\Utils\Guard;
-use Ripple\Utils\Output;
+use Ripple\Http\Server;
+use Ripple\Http\Server\Request;
 use Ripple\Worker\Manager;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
@@ -66,7 +64,7 @@ use const STDOUT;
  * @Author cclilshy
  * @Date   2024/8/16 23:38
  */
-class Worker extends \Ripple\Worker\Worker
+class Worker extends \Ripple\Worker
 {
     use Console;
     use DispatchesEvents;
@@ -119,17 +117,12 @@ class Worker extends \Ripple\Worker\Worker
         /*** output logs*/
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
-        $server = Net::Http()->server($this->address, [
+        $server = new Server($this->address, [
             'socket' => [
                 'so_reuseport' => 1,
                 'so_reuseaddr' => 1
             ]
         ]);
-
-        if (!$server) {
-            Output::error('Server not supported');
-            exit(1);
-        }
 
         $this->server      = $server;
         $this->application = Application::getInstance();

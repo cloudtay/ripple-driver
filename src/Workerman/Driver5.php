@@ -36,9 +36,7 @@ namespace Ripple\Driver\Workerman;
 
 use Co\System;
 use Revolt\EventLoop;
-use Revolt\EventLoop\UnsupportedFeatureException;
 use Ripple\Kernel;
-use Ripple\Utils\Output;
 use Workerman\Events\EventInterface;
 
 use function array_shift;
@@ -98,12 +96,8 @@ final class Driver5 implements EventInterface
         } elseif (Driver5::$baseProcessId !== (getmypid())) {
             Driver5::$baseProcessId = (getmypid());
 
-            try {
-                cancelAll();
-                System::Process()->forkedTick();
-            } catch (UnsupportedFeatureException $e) {
-                Output::error($e->getMessage());
-            }
+            cancelAll();
+            System::Process()->forkedTick();
         }
 
         wait();
