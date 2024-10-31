@@ -35,9 +35,8 @@
 namespace Ripple\Driver\Yii2;
 
 use Co\IO;
-use Co\Net;
-use Ripple\App\Http\Server\Request;
-use Ripple\App\Http\Server\Server;
+use Ripple\Http\Server\Request;
+use Ripple\Http\Server;
 use Ripple\Driver\Utils\Config;
 use Ripple\Driver\Utils\Console;
 use Ripple\Driver\Utils\Guard;
@@ -59,7 +58,7 @@ use const STDOUT;
  * @Author cclilshy
  * @Date   2024/8/16 23:38
  */
-class Worker extends \Ripple\Worker\Worker
+class Worker extends \Ripple\Worker
 {
     use Console;
 
@@ -124,17 +123,12 @@ class Worker extends \Ripple\Worker\Worker
         /*** output logs*/
         fwrite(STDOUT, $this->formatRow(["- Logs"]));
 
-        $server = Net::Http()->server($this->address, [
+        $server = new Server($this->address, [
             'socket' => [
                 'so_reuseport' => 1,
                 'so_reuseaddr' => 1
             ]
         ]);
-
-        if (!$server) {
-            Output::error('Server not supported');
-            exit(1);
-        }
 
         $this->server      = $server;
         $config            = require $this->rootPath . '/config/web.php';

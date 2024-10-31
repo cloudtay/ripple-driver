@@ -35,10 +35,9 @@
 
 use Composer\Autoload\ClassLoader;
 use Ripple\Driver\Laravel\Coroutine\ContainerMap;
-use Ripple\Driver\ThinkPHP\Coroutine\AppMap;
 
 if (!\function_exists('app')) {
-    $composer = new \ReflectionClass(ClassLoader::class);
+    $composer = new ReflectionClass(ClassLoader::class);
     $rootPath = \dirname($composer->getFileName(), 3);
     if (false) {
         // @codeCoverageIgnoreStart
@@ -48,6 +47,7 @@ if (!\function_exists('app')) {
          * @param array       $parameters
          *
          * @return \Closure|\Illuminate\Container\Container|mixed|object|null
+         * @throws \Illuminate\Contracts\Container\BindingResolutionException
          */
         function app(string $abstract = null, array $parameters = []): mixed
         {
@@ -65,10 +65,6 @@ if (!\function_exists('app')) {
              *
              * @return T|object|\think\App
              */
-            function app(string $name = '', array $args = [], bool $newInstance = false): mixed
-            {
-                return AppMap::app($name, $args, $newInstance);
-            }
         }
     }
 }

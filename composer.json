@@ -1,6 +1,5 @@
 {
   "name": "cloudtay/ripple-driver",
-  "version": "dev-main",
   "license": "MIT",
   "autoload": {
     "psr-4": {
@@ -23,7 +22,9 @@
     "ext-posix": "*",
     "ext-sockets": "*",
     "ext-pdo": "*",
-    "cloudtay/ripple": "*"
+    "cloudtay/ripple": "^1.0.0",
+    "cloudtay/ripple-http": "dev-main",
+    "cloudtay/ripple-websocket": "dev-main"
   },
   "require-dev": {
     "amphp/mysql": "^3.0",
@@ -38,10 +39,8 @@
     "topthink/framework": "*",
     "workerman/workerman": "*",
     "workerman/webman-framework": "dev-master",
-    "yiisoft/yii2": "^2.0@beta",
-    "cloudtay/ripple": "dev-main",
-    "cloudtay/ripple-http": "dev-main",
-    "cloudtay/ripple-websocket": "dev-main"
+    "yiisoft/yii2": "^2.0@beta"
+
   },
   "extra": {
     "laravel": {

@@ -34,7 +34,7 @@
 
 include_once __DIR__ . '/../vendor/autoload.php';
 
-use Ripple\Drive\Workerman\Driver5;
+use Ripple\Driver\Workerman\Driver5;
 use Ripple\Utils\Output;
 use Workerman\Timer;
 use Workerman\Worker;
@@ -73,14 +73,13 @@ $worker->onMessage = function ($connection, $data) {
 
     //使用原生guzzle实现异步请求
     try {
-        $response = Co\Plugin::Guzzle()->newClient()->get('https://www.baidu.com/');
+        $response = \Ripple\Http\Guzzle::newClient()->get('https://www.baidu.com/');
         \var_dump($response->getStatusCode());
         $connection->send("[async] Response status code: {$response->getStatusCode()}" . \PHP_EOL);
     } catch (Throwable $exception) {
         $connection->send("[async] Exception: {$exception->getMessage()}" . \PHP_EOL);
 
     }
-
 
     $connection->send("say {$data}");
 };
