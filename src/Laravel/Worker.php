@@ -132,7 +132,6 @@ class Worker extends \Ripple\Worker
             $monitor->add(base_path('app'));
             $monitor->add(base_path('bootstrap'));
             $monitor->add(base_path('config'));
-            $monitor->add(base_path('database'));
             $monitor->add(base_path('routes'));
             $monitor->add(base_path('resources'));
             if (file_exists(base_path('.env'))) {
