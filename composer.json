@@ -22,9 +22,9 @@
     "ext-posix": "*",
     "ext-sockets": "*",
     "ext-pdo": "*",
-    "cloudtay/ripple": "^1.0.0",
-    "cloudtay/ripple-http": "dev-main",
-    "cloudtay/ripple-websocket": "dev-main"
+    "cloudtay/ripple": "^1.0",
+    "cloudtay/ripple-http": "^1.0",
+    "cloudtay/ripple-websocket": "^1.0"
   },
   "require-dev": {
     "amphp/mysql": "^3.0",

@@ -35,9 +35,9 @@
 namespace Ripple\Driver\Workerman;
 
 use Closure;
-use Co\System;
-use Ripple\Stream;
 use Ripple\Kernel;
+use Ripple\Process;
+use Ripple\Stream;
 use Throwable;
 use Workerman\Events\EventInterface;
 use Workerman\Worker;
@@ -73,7 +73,10 @@ class Driver4 implements EventInterface
     protected array $_timer = [];
 
     /*** @var array */
-    protected array $_fd2ids = [];
+    protected array $_fd2RIDs = [];
+
+    /*** @var array */
+    protected array $_fd2WIDs = [];
 
     /*** @var array */
     protected array $_signal2ids = [];
@@ -113,12 +116,10 @@ class Driver4 implements EventInterface
                         }
                     }
 
-                    // 未找到回调
                     if (!isset($closure)) {
                         return false;
                     }
 
-                    // 注册信号处理器
                     $id                     = onSignal($fd, $closure);
                     $this->_signal2ids[$fd] = string2int($id);
                     return string2int($id);
@@ -127,7 +128,6 @@ class Driver4 implements EventInterface
                 }
 
             case EventInterface::EV_TIMER:
-                // 定时器
                 $this->_timer[] = $timerId = repeat(function () use ($func, $args) {
                     try {
                         call_user_func_array($func, $args);
@@ -135,11 +135,9 @@ class Driver4 implements EventInterface
                         Worker::stopAll(250, $e);
                     }
                 }, $fd);
-
                 return string2int($timerId);
 
             case EventInterface::EV_TIMER_ONCE:
-                // 一次性定时器
                 $this->_timer[] = $timerId = delay(function () use ($func, $args) {
                     try {
                         call_user_func_array($func, $args);
@@ -147,27 +145,24 @@ class Driver4 implements EventInterface
                         Worker::stopAll(250, $e);
                     }
                 }, $fd);
-
                 return string2int($timerId);
 
             case EventInterface::EV_READ:
-                // 读事件
                 $stream  = new Stream($fd);
                 $eventId = $stream->onReadable(function (Stream $stream) use ($func) {
                     $func($stream->stream);
                 });
 
-                $this->_fd2ids[$stream->id][] = string2int($eventId);
+                $this->_fd2RIDs[$stream->id][] = string2int($eventId);
                 return string2int($eventId);
 
             case EventInterface::EV_WRITE:
-                // 写事件
                 $stream  = new Stream($fd);
-                $eventId = $stream->onWritable(function (Stream $stream) use ($func) {
+                $eventId = $stream->onWriteable(function (Stream $stream) use ($func) {
                     $func($stream->stream);
                 });
 
-                $this->_fd2ids[$stream->id][] = string2int($eventId);
+                $this->_fd2WIDs[$stream->id][] = string2int($eventId);
                 return string2int($eventId);
         }
         return false;
@@ -192,19 +187,26 @@ class Driver4 implements EventInterface
         }
 
         if ($flag === EventInterface::EV_READ || $flag === EventInterface::EV_WRITE) {
-            // 取消读写事件监听
+            if (!$fd) {
+                return;
+            }
+
             $streamId = get_resource_id($fd);
-            if (isset($this->_fd2ids[$streamId])) {
-                foreach ($this->_fd2ids[$streamId] as $id) {
-                    $this->cancel($id);
+            if ($flag === EventInterface::EV_READ) {
+                foreach ($this->_fd2RIDs[$streamId] ?? [] as $eventId) {
+                    cancel(int2string($eventId));
                 }
-                unset($this->_fd2ids[$streamId]);
+                unset($this->_fd2RIDs[$streamId]);
+            } else {
+                foreach ($this->_fd2WIDs[$streamId] ?? [] as $eventId) {
+                    cancel(int2string($eventId));
+                }
+                unset($this->_fd2WIDs[$streamId]);
             }
             return;
         }
 
         if ($flag === EventInterface::EV_SIGNAL) {
-            // 取消信号监听
             $signalId = $this->_signal2ids[$fd] ?? null;
             if ($signalId) {
                 $this->cancel($signalId);
@@ -247,8 +249,9 @@ class Driver4 implements EventInterface
             Driver4::$baseProcessId = (Kernel::getInstance()->supportProcessControl() ? getmypid() : posix_getpid());
         } elseif (Driver4::$baseProcessId !== (Kernel::getInstance()->supportProcessControl() ? getmypid() : posix_getpid())) {
             Driver4::$baseProcessId = (Kernel::getInstance()->supportProcessControl() ? getmypid() : posix_getpid());
-            cancelAll();
-            System::Process()->forkedTick();
+            Process::getInstance()->processedInMain(static function () {
+                Process::getInstance()->forgetEvents();
+            });
         }
         wait();
 

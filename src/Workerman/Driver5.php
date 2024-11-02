@@ -34,14 +34,13 @@
 
 namespace Ripple\Driver\Workerman;
 
-use Co\System;
 use Revolt\EventLoop;
 use Ripple\Kernel;
+use Ripple\Process;
 use Workerman\Events\EventInterface;
 
 use function array_shift;
 use function Co\cancel;
-use function Co\cancelAll;
 use function Co\delay;
 use function Co\repeat;
 use function Co\stop;
@@ -95,9 +94,9 @@ final class Driver5 implements EventInterface
             Driver5::$baseProcessId = (getmypid());
         } elseif (Driver5::$baseProcessId !== (getmypid())) {
             Driver5::$baseProcessId = (getmypid());
-
-            cancelAll();
-            System::Process()->forkedTick();
+            Process::getInstance()->processedInMain(static function () {
+                Process::getInstance()->forgetEvents();
+            });
         }
 
         wait();

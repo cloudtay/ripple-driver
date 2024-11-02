@@ -78,12 +78,10 @@ class Worker extends \Ripple\Worker
     /**
      * @param string $address
      * @param int    $count
-     * @param bool   $sandbox
      */
     public function __construct(
         private readonly string $address = 'http://127.0.0.1:8008',
         int                     $count = 4,
-        private readonly bool   $sandbox = true,
     ) {
         $this->name  = 'http-server';
         $this->count = $count;
@@ -156,7 +154,7 @@ class Worker extends \Ripple\Worker
         $this->server->onRequest(function (
             Request $request
         ) {
-            $application = $this->sandbox ? clone $this->application : $this->application;
+            $application = clone $this->application;
             /*** @var Kernel $kernel */
             $kernel = $application->make(Kernel::class);
 
@@ -201,10 +199,8 @@ class Worker extends \Ripple\Worker
             } catch (Throwable $e) {
                 $this->dispatchEvent($application, new WorkerErrorOccurred($this->application, $application, $e));
             } finally {
-                if ($this->sandbox) {
-                    unset($application);
-                }
                 unset($laravelRequest, $response, $laravelResponse, $kernel);
+                unset($application);
             }
         });
         $this->server->listen();

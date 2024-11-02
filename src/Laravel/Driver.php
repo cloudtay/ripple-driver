@@ -81,7 +81,6 @@ class Driver extends Command
         'HTTP_LISTEN'    => 'string',
         'HTTP_WORKERS'   => 'int',
         'HTTP_RELOAD'    => 'bool',
-        'HTTP_SANDBOX'   => 'bool',
         'HTTP_ISOLATION' => 'bool',
     ];
 
@@ -236,9 +235,8 @@ class Driver extends Command
 
         $listen  = Config::get('ripple.HTTP_LISTEN', 'http://127.0.0.1:8008');
         $count   = intval(Config::get('ripple.HTTP_WORKERS', 4));
-        $sandbox = \Ripple\Driver\Utils\Config::value2bool(Config::get('ripple.HTTP_SANDBOX', 1));
 
-        $this->manager->addWorker(new Worker($listen, $count, $sandbox));
+        $this->manager->addWorker(new Worker($listen, $count));
         $this->manager->run();
     }
 
