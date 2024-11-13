@@ -42,7 +42,7 @@ jobs:
       - name: 初始化测试路由 (Initialize Test Route)
         working-directory: laravel-app
         run: |
-          echo "PRP_HTTP_WORKERS=1" >> .env
+          echo "RIP_HTTP_WORKERS=1" >> .env
           cp ./vendor/cloudtay/ripple-driver/src/Laravel/Tests/routes-test.php routes/test.php
           php artisan vendor:publish --tag=ripple-config
           php artisan optimize

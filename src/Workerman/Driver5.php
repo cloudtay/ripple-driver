@@ -36,7 +36,7 @@ namespace Ripple\Driver\Workerman;
 
 use Revolt\EventLoop;
 use Ripple\Kernel;
-use Ripple\Process;
+use Ripple\Process\Process;
 use Workerman\Events\EventInterface;
 
 use function array_shift;

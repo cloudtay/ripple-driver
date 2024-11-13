@@ -34,7 +34,7 @@
 
 namespace Ripple\Driver\Yii2;
 
-use Co\IO;
+use Ripple\File\File;
 use Ripple\Http\Server\Request;
 use Ripple\Http\Server;
 use Ripple\Driver\Utils\Config;
@@ -58,7 +58,7 @@ use const STDOUT;
  * @Author cclilshy
  * @Date   2024/8/16 23:38
  */
-class Worker extends \Ripple\Worker
+class Worker extends \Ripple\Worker\Worker
 {
     use Console;
 
@@ -135,7 +135,7 @@ class Worker extends \Ripple\Worker
         $this->application = new Application($config);
 
         if (Config::value2bool(1)) {
-            $monitor = IO::File()->watch();
+            $monitor = File::getInstance()->monitor();
             $monitor->add($this->rootPath . ('/commands'));
             $monitor->add($this->rootPath . ('/controllers'));
             $monitor->add($this->rootPath . ('/mail'));

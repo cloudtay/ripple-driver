@@ -209,8 +209,8 @@ class Driver extends Command
             }
         });
 
-        $listen = Env::get('PRP_HTTP_LISTEN', 'http://127.0.0.1:8008');
-        $count  = intval(Env::get('PRP_HTTP_WORKERS', 4)) ?? 4;
+        $listen = Env::get('RIP_HTTP_LISTEN', 'http://127.0.0.1:8008');
+        $count  = intval(Env::get('RIP_HTTP_WORKERS', 4)) ?? 4;
         $this->manager->addWorker(new Worker($listen, $count));
         $this->manager->run();
     }

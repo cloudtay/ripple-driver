@@ -34,7 +34,6 @@
 
 namespace Ripple\Driver\Laravel;
 
-use Co\IO;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Config;
@@ -46,6 +45,7 @@ use Ripple\Driver\Laravel\Response\IteratorResponse;
 use Ripple\Driver\Laravel\Traits\DispatchesEvents;
 use Ripple\Driver\Utils\Console;
 use Ripple\Driver\Utils\Guard;
+use Ripple\File\File;
 use Ripple\Http\Server;
 use Ripple\Http\Server\Request;
 use Ripple\Worker\Manager;
@@ -64,7 +64,7 @@ use const STDOUT;
  * @Author cclilshy
  * @Date   2024/8/16 23:38
  */
-class Worker extends \Ripple\Worker
+class Worker extends \Ripple\Worker\Worker
 {
     use Console;
     use DispatchesEvents;
@@ -126,7 +126,7 @@ class Worker extends \Ripple\Worker
         $this->application = Application::getInstance();
 
         if (\Ripple\Driver\Utils\Config::value2bool(Config::get('ripple.HTTP_RELOAD'))) {
-            $monitor = IO::File()->watch();
+            $monitor = File::getInstance()->monitor();
             $monitor->add(base_path('app'));
             $monitor->add(base_path('bootstrap'));
             $monitor->add(base_path('config'));

@@ -36,14 +36,14 @@ namespace Ripple\Driver\Utils;
 
 use Ripple\File\Monitor;
 use Ripple\Utils\Output;
-use Ripple\Worker;
+use Ripple\Worker\Worker;
 use Ripple\Worker\Manager;
 
 class Guard
 {
     /**
      * @param \Ripple\Worker\Manager $manager
-     * @param \Ripple\Worker         $worker
+     * @param \Ripple\Worker\Worker $worker
      * @param \Ripple\File\Monitor   $monitor
      *
      * @return void

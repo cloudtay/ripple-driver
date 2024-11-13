@@ -34,7 +34,6 @@
 
 namespace Ripple\Driver\ThinkPHP;
 
-use Co\IO;
 use Ripple\Driver\Utils\Config;
 use Ripple\Driver\Utils\Console;
 use Ripple\Driver\Utils\Guard;
@@ -69,7 +68,7 @@ use const STDOUT;
  * @Author cclilshy
  * @Date   2024/8/16 23:38
  */
-class Worker extends \Ripple\Worker
+class Worker extends \Ripple\Worker\Worker
 {
     use Console;
 
@@ -123,7 +122,7 @@ class Worker extends \Ripple\Worker
 
         // 热重载监听文件改动
         if (Config::value2bool(Env::get('PHP_HOT_RELOAD'))) {
-            $monitor = IO::File()->watch();
+            $monitor = \Ripple\File\File::getInstance()->monitor();
             $monitor->add(root_path() . '/app');
             $monitor->add(root_path() . '/config');
             $monitor->add(root_path() . '/extend');
@@ -197,7 +196,7 @@ class Worker extends \Ripple\Worker
 
             # 根据响应类型处理响应内容
             if ($thinkResponse instanceof File) {
-                $response->setContent(IO::File()->open($thinkResponse->getData(), 'r+'));
+                $response->setContent(\Ripple\File\File::open($thinkResponse->getData(), 'r+'));
             } else {
                 $response->setContent($thinkResponse->getData());
             }
