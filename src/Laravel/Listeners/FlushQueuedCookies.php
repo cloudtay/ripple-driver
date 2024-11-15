@@ -10,23 +10,21 @@
  * Contributions, suggestions, and feedback are always welcome!
  */
 
-namespace Ripple\Driver\Yii2;
+namespace Ripple\Driver\Laravel\Listeners;
 
-use Ripple\Worker\Manager;
-use Throwable;
-use yii\console\Controller;
-
-class RippleController extends Controller
+class FlushQueuedCookies
 {
     /**
-     * @return void
-     * @throws Throwable
+     * Handle the event.
+     *
+     * @param mixed $event
      */
-    public function actionIndex(): void
+    public function handle(mixed $event): void
     {
-        $manager = new Manager();
-        $worker  = new Worker();
-        $manager->addWorker($worker);
-        $manager->run();
+        if (!$event->sandbox->resolved('cookie')) {
+            return;
+        }
+
+        $event->sandbox->make('cookie')->flushQueuedCookies();
     }
 }

@@ -1,35 +1,13 @@
 <?php declare(strict_types=1);
-/*
- * Copyright (c) 2023-2024.
+/**
+ * Copyright © 2024 cclilshy
+ * Email: jingnigg@gmail.com
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * This software is licensed under the MIT License.
+ * For full license details, please visit: https://opensource.org/licenses/MIT
  *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
- * 特此免费授予任何获得本软件及相关文档文件（“软件”）副本的人，不受限制地处理
- * 本软件，包括但不限于使用、复制、修改、合并、出版、发行、再许可和/或销售
- * 软件副本的权利，并允许向其提供本软件的人做出上述行为，但须符合以下条件：
- *
- * 上述版权声明和本许可声明应包含在本软件的所有副本或主要部分中。
- *
- * 本软件按“原样”提供，不提供任何形式的保证，无论是明示或暗示的，
- * 包括但不限于适销性、特定目的的适用性和非侵权性的保证。在任何情况下，
- * 无论是合同诉讼、侵权行为还是其他方面，作者或版权持有人均不对
- * 由于软件或软件的使用或其他交易而引起的任何索赔、损害或其他责任承担责任。
+ * By using this software, you agree to the terms of the license.
+ * Contributions, suggestions, and feedback are always welcome!
  */
 
 namespace Ripple\Driver\Laravel;
@@ -37,39 +15,32 @@ namespace Ripple\Driver\Laravel;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
 use Revolt\EventLoop\UnsupportedFeatureException;
-use Ripple\Kernel;
-use Ripple\Stream;
-use Ripple\Stream\Exception\ConnectionException;
 use Ripple\Utils\Output;
-use Ripple\Utils\Serialization\Zx7e;
-use Ripple\Worker\Manager;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-use function app;
 use function base_path;
-use function Co\cancelAll;
+use function Co\channel;
+use function Co\lock;
 use function Co\onSignal;
+use function Co\proc;
 use function Co\wait;
+use function config_path;
 use function file_exists;
-use function flock;
-use function fopen;
-use function intval;
-use function json_decode;
-use function posix_mkfifo;
+use function file_get_contents;
+use function fwrite;
+use function putenv;
 use function shell_exec;
 use function sprintf;
 use function storage_path;
-use function touch;
-use function unlink;
+use function str_replace;
 
-use const LOCK_EX;
-use const LOCK_NB;
 use const PHP_BINARY;
 use const PHP_OS_FAMILY;
 use const SIGINT;
 use const SIGQUIT;
 use const SIGTERM;
+use const STDOUT;
 
 /**
  * @Author cclilshy
@@ -85,56 +56,57 @@ class Driver extends Command
     ];
 
     /**
-     * The name and signature of the console command.
+     * the name and signature of the console command.
      *
      * @var string
      */
     protected $signature = 'ripple:server
-    {action=start : The action to perform ,Support start|stop|reload|status}
+    {action=start : the action to perform ,Support start|stop|reload|status}
     {--d|daemon : Run the server in the background}';
 
     /**
-     * The console command description.
+     * the console command description.
      *
      * @var string
      */
     protected $description = 'start the ripple service';
-
-    /*** @var Manager */
-    private Manager $manager;
-
-    /*** @var string */
-    private string $controlPipePath;
-
-    /*** @var string */
-    private string $controlLockPath;
 
     /**
      * @param InputInterface  $input
      * @param OutputInterface $output
      *
      * @return void
-     * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
     public function initialize(InputInterface $input, OutputInterface $output): void
     {
         parent::initialize($input, $output);
-        $this->manager         = app(Manager::class);
-        $this->controlPipePath = storage_path('ripple.pipe');
-        $this->controlLockPath = storage_path('ripple.lock');
     }
 
     /**
      * 运行服务
      *
      * @return void
-     * @throws ConnectionException|UnsupportedFeatureException
+     * @throws \Revolt\EventLoop\UnsupportedFeatureException
      */
     public function handle(): void
     {
-        $zx7e = new Zx7e();
+        if (!file_exists(config_path('ripple.php'))) {
+            Output::warning('Please execute the following command to publish the configuration files first.');
+            Output::writeln('php artisan vendor:publish --tag=ripple-config');
+            return;
+        }
+
+        $projectPath = base_path();
+        $lock        = lock($projectPath);
+
         switch ($this->argument('action')) {
             case 'start':
+                if (!$lock->exclusion(false)) {
+                    Output::warning('the server is already running');
+                    return;
+                }
+                $lock->unlock();
+
                 if (!$this->option('daemon')) {
                     $this->start();
                     wait();
@@ -150,30 +122,32 @@ class Driver extends Command
                 }
                 exit(0);
             case 'stop':
-                if (!file_exists($this->controlPipePath)) {
-                    Output::warning('The server is not running');
+                if ($lock->exclusion(false)) {
+                    Output::warning('the server is not running');
                     return;
                 }
-                $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
-                $controlStream->write($zx7e->encodeFrame('{"action":"stop"}'));
-                Output::writeln('The server is stopping');
+                $channel = channel($projectPath);
+                $channel->send('stop');
                 break;
+
             case 'reload':
-                if (!file_exists($this->controlPipePath)) {
-                    Output::warning('The server is not running');
+                if ($lock->exclusion(false)) {
+                    Output::warning('the server is not running');
                     return;
                 }
-                $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
-                $controlStream->write($zx7e->encodeFrame('{"action":"reload"}'));
-                Output::writeln('The server is reloading');
+                $channel = channel($projectPath);
+                $channel->send('reload');
+                Output::info('the server is reloading');
                 break;
+
             case 'status':
-                if (!file_exists($this->controlPipePath)) {
-                    Output::writeln('The server is not running');
+                if ($lock->exclusion(false)) {
+                    Output::writeln('the server is not running');
                 } else {
-                    Output::writeln('The server is running');
+                    Output::info('the server is running');
                 }
                 break;
+
             default:
                 Output::warning('Unsupported operation');
                 return;
@@ -188,69 +162,28 @@ class Driver extends Command
     {
         /*** @compatible:Windows */
         if (PHP_OS_FAMILY !== 'Windows') {
-            onSignal(SIGINT, fn () => $this->stop());
-            onSignal(SIGTERM, fn () => $this->stop());
-            onSignal(SIGQUIT, fn () => $this->stop());
+            onSignal(SIGINT, static fn () => exit(0));
+            onSignal(SIGTERM, static fn () => exit(0));
+            onSignal(SIGQUIT, static fn () => exit(0));
         }
 
-        if (!file_exists($this->controlPipePath)) {
-            /*** @compatible:Windows */
-            if (!Kernel::getInstance()->supportProcessControl()) {
-                touch($this->controlPipePath);
-            } else {
-                posix_mkfifo($this->controlPipePath, 0600);
-            }
+        foreach (['RIP_HTTP_LISTEN', 'RIP_HTTP_WORKERS', 'RIP_HTTP_RELOAD',] as $key) {
+            $configKey   = str_replace('RIP_', 'ripple.', $key);
+            $configValue = Config::get($configKey);
+            putenv("{$key}={$configValue}");
         }
+        putenv('RIP_PROJECT_PATH=' . base_path());
 
-        if (!file_exists($this->controlLockPath)) {
-            touch($this->controlLockPath);
-        }
-
-        $zx7e          = new Zx7e();
-        $controlStream = new Stream(fopen($this->controlPipePath, 'r+'));
-        $controlStream->setBlocking(false);
-
-        if (!flock(fopen($this->controlLockPath, 'r+'), LOCK_EX | LOCK_NB)) {
-            Output::warning('The server is already running');
-            exit(0);
-        }
-
-        $controlStream->onReadable(function (Stream $controlStream) use ($zx7e) {
-            $content = $controlStream->read(1024);
-            foreach ($zx7e->decodeStream($content) as $command) {
-                $command = json_decode($command, true);
-                $action  = $command['action'];
-                switch ($action) {
-                    case 'stop':
-                        $this->stop();
-                        break;
-                    case 'reload':
-                        $this->manager->reload();
-                        break;
-                    case 'status':
-                        break;
-                }
-            }
-        });
-
-        $listen  = Config::get('ripple.HTTP_LISTEN', 'http://127.0.0.1:8008');
-        $count   = intval(Config::get('ripple.HTTP_WORKERS', 4));
-
-        $this->manager->addWorker(new Worker($listen, $count));
-        $this->manager->run();
-    }
-
-    /**
-     * @Author cclilshy
-     * @Date   2024/8/19 10:33
-     * @return void
-     */
-    private function stop(): void
-    {
-        cancelAll();
-        $this->manager->stop();
-        if (file_exists($this->controlPipePath)) {
-            unlink($this->controlPipePath);
-        }
+        $session                 = proc(PHP_BINARY);
+        $session->onMessage      = static function (string $data) {
+            fwrite(STDOUT, $data);
+        };
+        $session->onErrorMessage = static function (string $data) {
+            Output::warning($data);
+        };
+        $session->write(file_get_contents(__DIR__ . '/Server.php'));
+        $session->inputEot();
+        $session->onClose = static fn () => exit(0);
+        wait();
     }
 }

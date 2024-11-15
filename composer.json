@@ -40,7 +40,6 @@
     "workerman/workerman": "*",
     "workerman/webman-framework": "dev-master",
     "yiisoft/yii2": "^2.0@beta"
-
   },
   "extra": {
     "laravel": {
