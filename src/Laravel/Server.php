@@ -152,17 +152,9 @@ class Server extends Worker
     public function boot(): void
     {
         try {
-            onSignal(SIGINT, function () {
-                exit(0);
-            });
-
-            onSignal(SIGTERM, function () {
-                exit(0);
-            });
-
-            onSignal(SIGQUIT, function () {
-                exit(0);
-            });
+            onSignal(SIGINT, static fn () => exit(0));
+            onSignal(SIGTERM, static fn () => exit(0));
+            onSignal(SIGQUIT, static fn () => exit(0));
         } catch (UnsupportedFeatureException $e) {
             Output::warning("signal registration failure may cause the program to fail to exit normally: {$e->getMessage()}");
         }
@@ -200,6 +192,7 @@ class Server extends Worker
             );
 
             $application = clone $this->application;
+            $application->instance('request', $laravelRequest);
             $this->dispatchEvent($application, new RequestReceived($this->application, $application, $laravelRequest));
 
             try {
